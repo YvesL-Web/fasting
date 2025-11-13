@@ -1,0 +1,24 @@
+{
+   "name": "@fasting/shared",
+  "version": "1.0.0",
+  "private": false,
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "lint": "eslint .",
+    "test": "vitest"
+  },
+  "peerDependencies": {
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.1",
+    "tsdown": "^0.16.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.8",
+    "zod": "^4.1.12"
+  }
+}
