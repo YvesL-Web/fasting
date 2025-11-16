@@ -1,8 +1,6 @@
-// modules/auth/auth.service.ts
 import argon2 from 'argon2'
 import jwt from 'jsonwebtoken'
 import { Repository } from 'typeorm'
-import { z } from 'zod'
 
 import { UserEntity } from '../users/user.entity'
 import type {
@@ -11,18 +9,14 @@ import type {
   AuthUser,
   RequestPasswordResetInput,
   ResetPasswordInput
-} from './auth.schemas.js'
-import { env } from '../../config/env.js'
-import { AppError, ERR } from '../../utils/error.js'
-import { RefreshTokenEntity } from './entities/refresh-token.entity.js'
-import { EmailVerificationTokenEntity } from './entities/email-verification-token.entity.js'
-import { PasswordResetTokenEntity } from './entities/password-reset-token.entity.js'
-import { generateRandomToken, hashToken, verifyTokenHash } from './utils/token.js'
+} from './auth.schemas'
+import { env } from '../../config/env'
+import { AppError, ERR } from '../../utils/error'
+import { RefreshTokenEntity } from './entities/refresh-token.entity'
+import { EmailVerificationTokenEntity } from './entities/email-verification-token.entity'
+import { PasswordResetTokenEntity } from './entities/password-reset-token.entity'
+import { generateRandomToken, hashToken, verifyTokenHash } from './utils/token'
 import { addDays, addHours, addMinutes, isBefore } from 'date-fns'
-import { logger } from '../../utils/logger'
-
-const jwtSecretSchema = z.string().min(10)
-const jwtSecret = jwtSecretSchema.parse(env.JWT_SECRET ?? '')
 
 export class AuthService {
   constructor(

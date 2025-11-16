@@ -6,7 +6,6 @@ export type ZodTree = { _errors: string[]; [key: string]: ZodTree | string[] }
 // Type minimal pour ne pas dépendre de types dépréciés
 type MinimalIssue = { path: Array<string | number>; message: string }
 
-// Polyfill "treeify" si z.treeifyError n'existe pas (Zod v4+)
 function polyfillTreeify(issues: MinimalIssue[]): ZodTree {
   const root: ZodTree = { _errors: [] }
   for (const issue of issues) {

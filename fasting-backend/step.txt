@@ -6,7 +6,10 @@
 
 📱 commencer Front Web (Next.js) ?
 
+Meals (suivi de repas + calories)
+
+On peut commencer à poser la base du front Next.js (auth + dashboard + intégration /fasts).
+
 
 token:
-"accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwZWE0YjM3Yi0yZWQ5LTQxMTQtOGQ2NS04NzgyNDRiNTVlMTciLCJlbWFpbCI6Inl2ZXNlbmdvdWxvdUB5YWhvby5mciIsInJvbGUiOiJVU0VSIiwiaWF0IjoxNzYzMTk1NDg0LCJleHAiOjE3NjMxOTYzODR9.awBu480HgIulR7M627rKlBwCWTucHtJ3TRZKtaVn6kg",
-"refreshToken": "255d1840c9d8779d3b5fdd054b20f2b8e60e204bad19b9050aae6e2f5fcb193a"
+"refreshToken": "4e38d1ef2e2556809f18b1af96150a1b1b411e977b5ec6c5cb39dedcdca82850"

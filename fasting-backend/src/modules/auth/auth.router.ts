@@ -10,16 +10,15 @@ import {
   requestPasswordResetSchema,
   resetPasswordSchema,
   verifyEmailSchema
-} from './auth.schemas.js'
-import type { AuthRequest } from '../../middlewares/auth.js'
-import { authMiddleware } from '../../middlewares/auth.js'
-import { AppError, ERR } from '../../utils/error.js'
-import { RefreshTokenEntity } from './entities/refresh-token.entity.js'
-import { EmailVerificationTokenEntity } from './entities/email-verification-token.entity.js'
-import { PasswordResetTokenEntity } from './entities/password-reset-token.entity.js'
-import { generateRandomToken, hashToken } from './utils/token.js'
-import { env } from '../../config/env.js'
-import { logger } from '../../utils/logger'
+} from './auth.schemas'
+import type { AuthRequest } from '../../middlewares/auth'
+import { authMiddleware } from '../../middlewares/auth'
+import { AppError, ERR } from '../../utils/error'
+import { RefreshTokenEntity } from './entities/refresh-token.entity'
+import { EmailVerificationTokenEntity } from './entities/email-verification-token.entity'
+import { PasswordResetTokenEntity } from './entities/password-reset-token.entity'
+import { generateRandomToken, hashToken } from './utils/token'
+import { env } from '../../config/env'
 
 const usersRepo = appDataSource.getRepository(UserEntity)
 const refreshTokensRepo = appDataSource.getRepository(RefreshTokenEntity)

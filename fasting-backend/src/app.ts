@@ -1,13 +1,14 @@
 import express from 'express'
 import helmet from 'helmet'
 import cors from 'cors'
-import { env } from './config/env.js'
-import { healthRouter } from './modules/health/health.router.js'
-import { notFoundHandler } from './middlewares/not-found.js'
-import { errorHandler } from './middlewares/error-handler.js'
-import { requestLogger } from './middlewares/request-logger.js'
+import { env } from './config/env'
+import { healthRouter } from './modules/health/health.router'
+import { notFoundHandler } from './middlewares/not-found'
+import { errorHandler } from './middlewares/error-handler'
+import { requestLogger } from './middlewares/request-logger'
 import compression from 'compression'
-import { authRouter } from './modules/auth/auth.router.js'
+import { authRouter } from './modules/auth/auth.router'
+import { fastRouter } from './modules/fasts/fast.router'
 
 export const createApp = () => {
   const app = express()
@@ -32,8 +33,9 @@ export const createApp = () => {
   app.use(requestLogger)
 
   // Routes
-  app.use('/health', healthRouter)
   app.use('/auth', authRouter)
+  app.use('/fasts', fastRouter)
+  app.use('/health', healthRouter)
 
   // 404
   app.use(notFoundHandler)
