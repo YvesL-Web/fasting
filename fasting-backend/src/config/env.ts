@@ -1,14 +1,14 @@
-import "dotenv/config";
-import { z } from "zod";
+import 'dotenv/config'
+import { z } from 'zod'
 
 const LogLevel = z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
 
 const envSchema = z.object({
   // Mode
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   LOG_LEVEL: LogLevel.optional(), // sera dérivé plus bas si non défini
 
-  PORT: z.string().default("4000"),
+  PORT: z.string().default('4000'),
 
   // Autoriser string OU liste séparée par virgules
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
@@ -20,9 +20,18 @@ const envSchema = z.object({
   DB_PASS: z.string(),
   DB_NAME: z.string(),
 
- // Redis
+  // Redis
   REDIS_URL: z.string().default('redis://localhost:6379'),
-});
+
+  // JWT
+  JWT_SECRET: z.string().min(10),
+  JWT_ACCESS_SECRET: z.string().min(10),
+  JWT_REFRESH_SECRET: z.string().min(10),
+
+  // Tokens timeouts
+  PASSWORD_RESET_TOKEN_EXPIRES_MINUTES: z.coerce.number().default(60),
+  EMAIL_VERIFICATION_TOKEN_EXPIRES_HOURS: z.coerce.number().default(24)
+})
 
 const raw = envSchema.parse(process.env)
 
@@ -39,7 +48,6 @@ const corsOrigin = raw.CORS_ORIGIN.includes(',')
       .filter(Boolean)
   : raw.CORS_ORIGIN
 
-
 // if (!parsed.success) {
 //   console.error("❌ Invalid environment variables:", parsed.error.format());
 //   process.exit(1);
@@ -53,4 +61,3 @@ export const env = {
   CORS_ORIGIN: corsOrigin,
   LOG_LEVEL: resolvedLogLevel
 } as const
-

@@ -1,17 +1,28 @@
-import "reflect-metadata";
+import 'reflect-metadata'
 
-import { DataSource } from "typeorm";
-import { env } from "../config/env";
+import { DataSource } from 'typeorm'
+import { env } from '../config/env'
+import { UserEntity } from '../modules/users/user.entity'
+import { RefreshTokenEntity } from '../modules/auth/entities/refresh-token.entity'
+import { EmailVerificationTokenEntity } from '../modules/auth/entities/email-verification-token.entity'
+import { PasswordResetTokenEntity } from '../modules/auth/entities/password-reset-token.entity'
 
 export const appDataSource = new DataSource({
-  type: "postgres",
+  type: 'postgres',
   host: env.DB_HOST,
   port: env.DB_PORT,
   username: env.DB_USER,
   password: env.DB_PASS,
   database: env.DB_NAME,
-  entities: [], // plus tard
+  entities: [
+    UserEntity,
+    RefreshTokenEntity,
+    EmailVerificationTokenEntity,
+    PasswordResetTokenEntity
+  ],
   synchronize: false, // toujours false en prod
+  logging: env.IS_DEV ? ['error', 'schema'] : ['error'],
   // logging: env.NODE_ENV === "development"
-  logging: false
-});
+  // logging: false,
+  migrations: ['src/migrations/*.ts']
+})

@@ -2,6 +2,7 @@ import { ZodError } from 'zod'
 import { treeifyErrorSafe } from './zod-error'
 
 export const ERR = {
+  BAD_REQUEST: { status: 400, code: 'BAD_REQUEST', message: 'Bad request.' },
   INVALID_INPUT: { status: 400, code: 'INVALID_INPUT', message: 'Invalid request input.' },
   UNAUTHORIZED: { status: 401, code: 'UNAUTHORIZED', message: 'Authentication required.' },
   FORBIDDEN: { status: 403, code: 'FORBIDDEN', message: 'Not allowed.' },
