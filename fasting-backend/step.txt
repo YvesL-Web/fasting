@@ -38,3 +38,7 @@ throw new AppError(
   { ...ERR.BAD_REQUEST, message: 'Lien de réinitialisation invalide ou expiré.' },
   { reason: 'INVALID_OR_EXPIRED_PASSWORD_RESET_TOKEN' }
 )
+
+
+Ajouter une bannière en haut du dashboard si l’email n’est pas vérifié (user.emailVerifiedAt === null), avec ce bouton intégré.
+Ou brancher les messages de backend encore plus finement (details.reason → message spécialisé côté front).

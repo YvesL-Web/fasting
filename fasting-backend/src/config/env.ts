@@ -21,7 +21,10 @@ const envSchema = z.object({
   DB_NAME: z.string(),
 
   // Redis
+  REDIS_HOST: z.string().default('localhost'),
+  REDIS_PORT: z.coerce.number().default(6379),
   REDIS_URL: z.string().default('redis://localhost:6379'),
+  REDIS_PREFIX: z.string().optional(),
 
   // JWT
   JWT_SECRET: z.string().min(32),
@@ -30,7 +33,20 @@ const envSchema = z.object({
 
   // Tokens timeouts
   PASSWORD_RESET_TOKEN_EXPIRES_MINUTES: z.coerce.number().positive().default(60),
-  EMAIL_VERIFICATION_TOKEN_EXPIRES_HOURS: z.coerce.number().positive().default(24)
+  EMAIL_VERIFICATION_TOKEN_EXPIRES_HOURS: z.coerce.number().positive().default(24),
+
+  // Emails
+  EMAIL_FROM: z.string().optional(),
+  MAILTRAP_HOST: z.string(),
+  MAILTRAP_USER: z.string(),
+  MAILTRAP_PASS: z.string(),
+  MAILTRAP_PORT: z.coerce.number(),
+
+  // Cloudinary
+  CLOUDINARY_CLOUD_NAME: z.string(),
+  CLOUDINARY_API_KEY: z.string(),
+  CLOUDINARY_API_SECRET: z.string(),
+  CLOUDINARY_UPLOAD_FOLDER: z.string().default('app/uploads')
 })
 
 const raw = envSchema.parse(process.env)

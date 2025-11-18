@@ -1,11 +1,11 @@
 import http from 'http'
 
-import { createApp } from "./app";
-import { env } from "./config/env";
+import { createApp } from './app'
+import { env } from './config/env'
 
-import { appDataSource } from "./infra/db";
-import { logger } from './utils/logger';
-
+import { appDataSource } from './infra/db'
+import { logger } from './utils/logger'
+import { ensureRedis } from './config/ioredis'
 
 async function bootstrap() {
   // ----- Gestion d’erreurs globales -----
@@ -21,6 +21,7 @@ async function bootstrap() {
   // ----- Initialisation DB -----
   await appDataSource.initialize()
   logger.info('DataSource initialized')
+  await ensureRedis()
 
   // ----- Création app Express -----
   const app = createApp()
