@@ -181,7 +181,10 @@ export class AuthService {
     const found = match.find((m) => m.valid)?.token
 
     if (!found || found.revoked || isBefore(found.expiresAt, new Date())) {
-      throw new AppError(ERR.UNAUTHORIZED, 'invalid refresh token')
+      throw new AppError(
+        { ...ERR.UNAUTHORIZED, message: 'Invalid or expired refresh token.' },
+        { reason: 'INVALID_REFRESH_TOKEN' }
+      )
     }
 
     const user = found.user
@@ -262,7 +265,10 @@ export class AuthService {
     const found = match.find((m) => m.valid)?.token
 
     if (!found || found.used || isBefore(found.expiresAt, new Date())) {
-      throw new AppError(ERR.BAD_REQUEST, 'invalid or expired password reset token')
+      throw new AppError(
+        { ...ERR.BAD_REQUEST, message: 'Invalid or expired password reset link.' },
+        { reason: 'INVALID_OR_EXPIRED_PASSWORD_RESET_TOKEN' }
+      )
     }
 
     const user = found.user
@@ -289,7 +295,10 @@ export class AuthService {
     const found = match.find((m) => m.valid)?.token
 
     if (!found || found.used || isBefore(found.expiresAt, new Date())) {
-      throw new AppError(ERR.BAD_REQUEST, 'invalid or expired email verification token')
+      throw new AppError(
+        { ...ERR.BAD_REQUEST, message: 'Invalid or expired email verification link.' },
+        { reason: 'INVALID_OR_EXPIRED_EMAIL_VERIFICATION_TOKEN' }
+      )
     }
 
     const user = found.user

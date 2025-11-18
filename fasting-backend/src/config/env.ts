@@ -24,13 +24,13 @@ const envSchema = z.object({
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
   // JWT
-  JWT_SECRET: z.string().min(10),
-  JWT_ACCESS_SECRET: z.string().min(10),
-  JWT_REFRESH_SECRET: z.string().min(10),
+  JWT_SECRET: z.string().min(32),
+  JWT_ACCESS_SECRET: z.string().min(32),
+  JWT_REFRESH_SECRET: z.string().min(32),
 
   // Tokens timeouts
-  PASSWORD_RESET_TOKEN_EXPIRES_MINUTES: z.coerce.number().default(60),
-  EMAIL_VERIFICATION_TOKEN_EXPIRES_HOURS: z.coerce.number().default(24)
+  PASSWORD_RESET_TOKEN_EXPIRES_MINUTES: z.coerce.number().positive().default(60),
+  EMAIL_VERIFICATION_TOKEN_EXPIRES_HOURS: z.coerce.number().positive().default(24)
 })
 
 const raw = envSchema.parse(process.env)

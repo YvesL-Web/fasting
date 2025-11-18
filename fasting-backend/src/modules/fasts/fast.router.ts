@@ -71,7 +71,7 @@ fastRouter.get('/', async (req: AuthRequest, res, next) => {
     const query = listFastsQuerySchema.parse(req.query)
     const fasts = await fastService.listFasts(req.userId, query)
 
-    res.status(200).json({ fasts })
+    res.status(200).json({ fasts: fasts.map(toFastResponse) })
   } catch (err) {
     if (err instanceof z.ZodError) {
       return next(AppError.fromZod(err))

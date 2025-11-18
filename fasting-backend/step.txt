@@ -8,8 +8,33 @@
 
 Meals (suivi de repas + calories)
 
-On peut commencer à poser la base du front Next.js (auth + dashboard + intégration /fasts).
+-------
+améliorer l’UX (loading states, toasts, gestion des erreurs)
+
+ou commencer à intégrer password reset / email verification aussi côté front
+
+ou structurer le front en “features” pour garder un code très scalable.
 
 
 token:
 "refreshToken": "4e38d1ef2e2556809f18b1af96150a1b1b411e977b5ec6c5cb39dedcdca82850"
+
+
+
+Si tu veux, au prochain message, on peut faire un petit ProtectedLayout réutilisable (pour toutes les pages logged-in) qui utilise useCurrentUser, 
+et ton DashboardPage se contenterait juste d’afficher les fasts/stats en étant sûr que l’utilisateur est authentifié.
+
+Si tu veux, ensuite on peut faire pareil pour /auth/me avec un useCurrentUser qui utilise apiFetch("/auth/me") + auto-logout, pour les layouts protégés.
+
+Si tu veux après ça, on peut aussi ajuster le backend pour que message soit directement user-friendly ("Fast already running"), et garder details pour quelque chose de plus structuré.
+
+// exemple pour un jeûne déjà en cours dans ton FastService (pseudo-code)
+throw new AppError(
+  { ...ERR.CONFLICT, message: 'Un jeûne est déjà en cours.' },
+  { reason: 'FAST_ALREADY_RUNNING' } // details structuré
+)
+
+throw new AppError(
+  { ...ERR.BAD_REQUEST, message: 'Lien de réinitialisation invalide ou expiré.' },
+  { reason: 'INVALID_OR_EXPIRED_PASSWORD_RESET_TOKEN' }
+)

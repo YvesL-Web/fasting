@@ -20,12 +20,18 @@ export class FastService {
   async startFast(userId: string, input: StartFastInput): Promise<FastEntity> {
     const user = await this.usersRepo.findOne({ where: { id: userId } })
     if (!user) {
-      throw new AppError(ERR.NOT_FOUND, 'User not found')
+      throw new AppError(
+        { ...ERR.NOT_FOUND, message: 'User not found.' },
+        { reason: 'USER_NOT_FOUND', userId }
+      )
     }
 
     const existing = await this.getCurrentFast(userId)
     if (existing) {
-      throw new AppError(ERR.CONFLICT, 'Fast already running')
+      throw new AppError(
+        { ...ERR.CONFLICT, message: 'Fast already running' },
+        { reason: 'FAST_ALREADY_RUNNING' }
+      )
     }
 
     const fast = this.fastsRepo.create({
@@ -42,13 +48,19 @@ export class FastService {
   async stopFast(userId: string, input: StopFastInput): Promise<FastEntity> {
     const current = await this.getCurrentFast(userId)
     if (!current) {
-      throw new AppError(ERR.NOT_FOUND, 'No active fast')
+      throw new AppError(
+        { ...ERR.NOT_FOUND, message: 'No active fast' },
+        { reason: 'NO_ACTIVE_FAST' }
+      )
     }
 
     const endAt = input.endAt ?? new Date()
 
     if (isBefore(endAt, current.startAt)) {
-      throw new AppError(ERR.BAD_REQUEST, 'End date is before start date')
+      throw new AppError(
+        { ...ERR.BAD_REQUEST, message: 'End date is before start date' },
+        { reason: 'END_DATE_BEFORE_START_DATE', startAt: current.startAt, endAt }
+      )
     }
 
     current.endAt = endAt
@@ -71,11 +83,6 @@ export class FastService {
   }
 
   async getStats(userId: string): Promise<FastStats> {
-    const fasts = await this.fastsRepo.find({
-      where: { user: { id: userId }, endAt: IsNull() },
-      relations: ['user']
-    })
-
     // On récupère tous les fasts (finis + en cours) pour stats
     const allFasts = await this.fastsRepo.find({
       where: { user: { id: userId } },

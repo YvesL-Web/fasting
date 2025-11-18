@@ -1,0 +1,35 @@
+1.4. Refresh tokens : fonctionnel, mais lookup O(n)
+
+Pattern actuel :
+
+Tu stockes un tokenHash (hash du refresh token) dans la DB.
+
+Pour trouver un refresh token, tu fais :
+
+const allTokens = await this.refreshTokensRepo.find({ relations: ['user'] })
+const match = await Promise.all(
+  allTokens.map(async (t) => ({
+    token: t,
+    valid: await verifyTokenHash(t.tokenHash, refreshTokenPlain)
+  }))
+)
+const found = match.find((m) => m.valid)?.token
+
+
+✅ Sécurité :
+
+refresh token opaque, aléatoire, hashé → très bien, rien à dire là-dessus.
+
+⚠️ Perf :
+
+pour chaque refresh / logout, tu fais un find() sur tous les refresh tokens, puis un argon2.verify sur chaque.
+→ Ça passe pour un side project / petit projet, mais à scale ça ne tiendra pas.
+
+Pas besoin de tout changer maintenant, mais à garder en tête.
+Plus tard, tu pourras :
+
+soit ajouter une colonne selector (random public id), rechercher dessus, puis vérifier le hash ;
+
+soit passer à des refresh tokens JWT signés (mais tu perds le “revoke by row” simple).
+
+Pour l’instant : c’est ok si tu acceptes le côté “dev / petit volume”.

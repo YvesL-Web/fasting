@@ -19,6 +19,7 @@ import { EmailVerificationTokenEntity } from './entities/email-verification-toke
 import { PasswordResetTokenEntity } from './entities/password-reset-token.entity'
 import { generateRandomToken, hashToken } from './utils/token'
 import { env } from '../../config/env'
+import { addHours } from 'date-fns'
 
 const usersRepo = appDataSource.getRepository(UserEntity)
 const refreshTokensRepo = appDataSource.getRepository(RefreshTokenEntity)
@@ -175,9 +176,7 @@ authRouter.post(
       const entity = emailVerificationTokensRepo.create({
         user,
         tokenHash,
-        expiresAt: new Date(
-          Date.now() + env.EMAIL_VERIFICATION_TOKEN_EXPIRES_HOURS * 60 * 60 * 1000
-        ),
+        expiresAt: addHours(new Date(), env.EMAIL_VERIFICATION_TOKEN_EXPIRES_HOURS),
         used: false
       })
 
