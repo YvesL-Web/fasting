@@ -1,13 +1,15 @@
 import express from 'express'
 import helmet from 'helmet'
 import cors from 'cors'
+import cookieParser from 'cookie-parser'
+
 import { env } from './config/env'
 import { healthRouter } from './modules/health/health.router'
 import { notFoundHandler } from './middlewares/not-found'
 import { errorHandler } from './middlewares/error-handler'
 import { requestLogger } from './middlewares/request-logger'
 import compression from 'compression'
-import { authRouter } from './modules/auth/auth.router'
+import { authRouter } from './modules/auth/auth-router'
 import { fastRouter } from './modules/fasts/fast.router'
 
 export const createApp = () => {
@@ -24,7 +26,7 @@ export const createApp = () => {
       credentials: true
     })
   )
-
+  app.use(cookieParser())
   app.use(express.json({ limit: '1mb' }))
   app.use(express.urlencoded({ extended: true, limit: '1mb' }))
 

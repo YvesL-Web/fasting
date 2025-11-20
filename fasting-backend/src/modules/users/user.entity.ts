@@ -44,6 +44,15 @@ export class UserEntity {
   @Column({ type: 'timestamp', nullable: true })
   emailVerifiedAt!: Date | null
 
+  @Column({ type: 'varchar', length: 512, nullable: true })
+  avatarUrl?: string | null
+
+  @Column({ type: 'boolean', default: false }) // pour two-factor authentication
+  totpEnabled!: boolean
+
+  @Column({ type: 'text', nullable: true }) // secret TOTP chiffré
+  totpSecretEnc!: string | null
+
   @CreateDateColumn()
   createdAt!: Date
 

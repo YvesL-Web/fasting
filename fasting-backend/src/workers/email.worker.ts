@@ -14,27 +14,22 @@ import {
   EMAIL_CHANGED_CONFIRMATION_TEMPLATE_TEXT
 } from '../emails/templates/emailChangedConfirmationTemplate'
 import { sendEmail } from '../emails/emails'
-
-type VerificationEmailPayload = { firstName: string; to: string; code: string }
-type RequestNewEmailPayload = { firstName: string; to: string; code: string }
-type EmailChangedConfirmationPayload = { firstName: string; to: string }
-
-type EmailJobData =
-  | { kind: 'verification'; payload: VerificationEmailPayload }
-  | { kind: 'request-new-email'; payload: RequestNewEmailPayload }
-  | { kind: 'email-changed-confirmation'; payload: EmailChangedConfirmationPayload }
+import {
+  PASSWORD_RESET_REQUEST_TEMPLATE_HTML,
+  PASSWORD_RESET_REQUEST_TEMPLATE_TEXT
+} from '../emails/templates/passwordResetRequestTemplate'
 
 export const emailWorker = makeWorker('email', async (job: Job<any>) => {
   try {
     switch (job.name) {
       case 'sendVerificationEmail': {
         const p = job.data
-        const firstName: string = p.firstName
+        const name: string = p.name
         const to: string = p.to
         const code: string = p.code
         const subject = 'Verify your email'
-        const html = VERIFICATION_EMAIL_TEMPLATE_HTML(code, firstName)
-        const text = VERIFICATION_EMAIL_TEMPLATE_TEXT(code, firstName)
+        const html = VERIFICATION_EMAIL_TEMPLATE_HTML(code, name)
+        const text = VERIFICATION_EMAIL_TEMPLATE_TEXT(code, name)
 
         await sendEmail({
           to,
@@ -46,14 +41,28 @@ export const emailWorker = makeWorker('email', async (job: Job<any>) => {
         return { sent: true }
       }
 
+      case 'sendPasswordResetEmail': {
+        const { name, to, code } = job.data as {
+          name: string
+          to: string
+          code: string
+        }
+        const subject = 'Password Reset Request'
+        const html = PASSWORD_RESET_REQUEST_TEMPLATE_HTML(code, name)
+        const text = PASSWORD_RESET_REQUEST_TEMPLATE_TEXT(code, name)
+
+        await sendEmail({ to, subject, html, text })
+        return { sent: true }
+      }
+
       case 'requestNewEmail': {
         const p = job.data
-        const firstName: string = p.firstName
+        const name: string = p.name
         const to: string = p.to
         const code: string = p.code
         const subject = 'Confirm your new email'
-        const html = REQUEST_NEW_EMAIL_TEMPLATE_HTML(code, firstName)
-        const text = REQUEST_NEW_EMAIL_TEMPLATE_TEXT(code, firstName)
+        const html = REQUEST_NEW_EMAIL_TEMPLATE_HTML(code, name)
+        const text = REQUEST_NEW_EMAIL_TEMPLATE_TEXT(code, name)
 
         await sendEmail({
           to,
@@ -66,11 +75,11 @@ export const emailWorker = makeWorker('email', async (job: Job<any>) => {
 
       case 'emailChangedConfirmation': {
         const p = job.data
-        const firstName: string = p.firstName
+        const name: string = p.name
         const to: string = p.to
         const subject = 'Email Successfully Updated'
-        const html = EMAIL_CHANGED_CONFIRMATION_TEMPLATE_HTML(firstName)
-        const text = EMAIL_CHANGED_CONFIRMATION_TEMPLATE_TEXT(firstName)
+        const html = EMAIL_CHANGED_CONFIRMATION_TEMPLATE_HTML(name)
+        const text = EMAIL_CHANGED_CONFIRMATION_TEMPLATE_TEXT(name)
         await sendEmail({
           to,
           subject,

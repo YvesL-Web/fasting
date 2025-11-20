@@ -2,25 +2,50 @@ import type { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { env } from '../config/env'
 import { AppError, ERR } from '../utils/error'
+import { getSession, touchSession } from '../modules/auth/session-store'
 
 export interface AuthRequest extends Request {
   userId?: string
+  sessionId?: string
 }
 
-export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization
-
-  if (!authHeader?.startsWith('Bearer ')) {
-    return next(new AppError(ERR.UNAUTHORIZED, 'missing or invalid authorization header'))
-  }
-
-  const token = authHeader.substring('Bearer '.length)
-
+export const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as { sub: string }
-    req.userId = payload.sub
+    const cookieName = env.SESSION_COOKIE_NAME
+    const sid = (req.cookies && req.cookies[cookieName]) as string | undefined
+
+    if (!sid) {
+      return next(
+        new AppError(
+          { ...ERR.UNAUTHORIZED, message: 'Authentication required.' },
+          { reason: 'MISSING_SESSION_COOKIE' }
+        )
+      )
+    }
+
+    const session = await getSession(sid)
+    if (!session) {
+      return next(
+        new AppError(
+          { ...ERR.UNAUTHORIZED, message: 'Session expired or invalid.' },
+          { reason: 'INVALID_SESSION' }
+        )
+      )
+    }
+
+    // Sliding idle window
+    void touchSession(sid)
+
+    req.userId = session.userId
+    req.sessionId = sid
+
     return next()
-  } catch {
-    return next(new AppError(ERR.UNAUTHORIZED, 'invalid token'))
+  } catch (error) {
+    return next(
+      new AppError(
+        { ...ERR.SERVER_ERROR, message: 'Failed to validate session.' },
+        { reason: 'SESSION_CHECK_ERROR', error }
+      )
+    )
   }
 }

@@ -1,4 +1,4 @@
-export const EMAIL_CHANGED_CONFIRMATION_TEMPLATE_HTML = (firstName: string) => `
+export const EMAIL_CHANGED_CONFIRMATION_TEMPLATE_HTML = (name: string) => `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,7 +11,7 @@ export const EMAIL_CHANGED_CONFIRMATION_TEMPLATE_HTML = (firstName: string) => `
     <h1 style="color: white; margin: 0;">Email Successfully Updated</h1>
   </div>
   <div style="background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-    <p>Hello ${firstName},</p>
+    <p>Hello ${name},</p>
     <p>This is a confirmation that the email address associated with your account has been successfully updated.</p>
     <p>If you made this change, no further action is required.</p>
     <p>If you did <strong>not</strong> request this change, please contact our support team immediately to secure your account.</p>
@@ -23,9 +23,9 @@ export const EMAIL_CHANGED_CONFIRMATION_TEMPLATE_HTML = (firstName: string) => `
 </body>
 </html>
 `
-export const EMAIL_CHANGED_CONFIRMATION_TEMPLATE_TEXT = (firstName: string) => `
+export const EMAIL_CHANGED_CONFIRMATION_TEMPLATE_TEXT = (name: string) => `
 Email Successfully Updated
-Hello ${firstName},
+Hello ${name},
 
 This is a confirmation that the email address associated with your account has been successfully updated.
 

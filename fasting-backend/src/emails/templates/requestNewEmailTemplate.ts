@@ -1,4 +1,4 @@
-export const REQUEST_NEW_EMAIL_TEMPLATE_HTML = (code: string, firstName: string) => `
+export const REQUEST_NEW_EMAIL_TEMPLATE_HTML = (code: string, name: string) => `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,7 +11,7 @@ export const REQUEST_NEW_EMAIL_TEMPLATE_HTML = (code: string, firstName: string)
     <h1 style="color: white; margin: 0;">Confirm Your New Email</h1>
   </div>
   <div style="background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-    <p>Hello ${firstName},</p>
+    <p>Hello ${name},</p>
     <p>We received a request to change the email address associated with your account.</p>
     <p>If you made this request, please use the confirmation code below to verify your new email address:</p>
     <div style="text-align: center; margin: 30px 0;">
@@ -28,9 +28,9 @@ export const REQUEST_NEW_EMAIL_TEMPLATE_HTML = (code: string, firstName: string)
 </html>
 `
 
-export const REQUEST_NEW_EMAIL_TEMPLATE_TEXT = (code: string, firstName: string) => `
+export const REQUEST_NEW_EMAIL_TEMPLATE_TEXT = (code: string, name: string) => `
 Confirm Your New Email
-Hello ${firstName},
+Hello ${name},
 We received a request to change the email address associated with your account.
 
 If you made this request, please use the confirmation code below to verify your new email address:

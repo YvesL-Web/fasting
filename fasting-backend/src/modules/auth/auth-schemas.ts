@@ -18,12 +18,14 @@ export const requestPasswordResetSchema = z.object({
 })
 
 export const resetPasswordSchema = z.object({
-  token: z.string().min(10),
+  email: z.email(),
+  code: z.string().min(4).max(10),
   newPassword: z.string().min(8).max(100)
 })
 
 export const verifyEmailSchema = z.object({
-  token: z.string().min(10)
+  email: z.email(),
+  code: z.string().length(6).regex(/^\d+$/)
 })
 
 export const authUserSchema = userSchema

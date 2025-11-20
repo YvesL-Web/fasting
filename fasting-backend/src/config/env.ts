@@ -31,9 +31,9 @@ const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
 
-  // Tokens timeouts
-  PASSWORD_RESET_TOKEN_EXPIRES_MINUTES: z.coerce.number().positive().default(60),
-  EMAIL_VERIFICATION_TOKEN_EXPIRES_HOURS: z.coerce.number().positive().default(24),
+  // Auth
+  EMAIL_VERIFICATION_TTL_SECONDS: z.coerce.number().default(900), // 15 minutes
+  PASSWORD_RESET_TTL_SECONDS: z.coerce.number().default(900), // 15 minutes
 
   // Emails
   EMAIL_FROM: z.string().optional(),
@@ -46,7 +46,16 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string(),
   CLOUDINARY_API_KEY: z.string(),
   CLOUDINARY_API_SECRET: z.string(),
-  CLOUDINARY_UPLOAD_FOLDER: z.string().default('app/uploads')
+  CLOUDINARY_UPLOAD_FOLDER: z.string().default('app/uploads'),
+
+  // Session
+  SESSION_TTL_SECONDS: z.coerce.number().default(60 * 60 * 24 * 7), // 7 jours
+  SESSION_COOKIE_NAME: z.string().default('sid'),
+  SESSION_COOKIE_SECURE: z.boolean().default(true), // en dev http tu peux mettre false
+  SESSION_COOKIE_DOMAIN: z.string().optional(),
+
+  // Frontend
+  FRONTEND_BASE_URL: z.string().default('http://localhost:3000')
 })
 
 const raw = envSchema.parse(process.env)
