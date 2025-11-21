@@ -1,6 +1,15 @@
 import 'dotenv/config'
 import { z } from 'zod'
 
+const toBool = (s: string) => {
+  const v = s.trim().toLowerCase()
+  if (['1', 'true', 'yes', 'y', 'on'].includes(v)) return true
+  if (['0', 'false', 'no', 'n', 'off', ''].includes(v)) return false
+  throw new Error(`Invalid boolean: "${s}" (use true/false)`)
+}
+
+const BoolFromEnv = z.string().default('false').transform(toBool)
+
 const LogLevel = z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
 
 const envSchema = z.object({
@@ -51,7 +60,7 @@ const envSchema = z.object({
   // Session
   SESSION_TTL_SECONDS: z.coerce.number().default(60 * 60 * 24 * 7), // 7 jours
   SESSION_COOKIE_NAME: z.string().default('sid'),
-  SESSION_COOKIE_SECURE: z.boolean().default(true), // en dev http tu peux mettre false
+  SESSION_COOKIE_SECURE: BoolFromEnv, // en dev http tu peux mettre false
   SESSION_COOKIE_DOMAIN: z.string().optional(),
 
   // Frontend
@@ -72,11 +81,6 @@ const corsOrigin = raw.CORS_ORIGIN.includes(',')
       .map((s) => s.trim())
       .filter(Boolean)
   : raw.CORS_ORIGIN
-
-// if (!parsed.success) {
-//   console.error("❌ Invalid environment variables:", parsed.error.format());
-//   process.exit(1);
-// }
 
 export const env = {
   ...raw,

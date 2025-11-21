@@ -83,7 +83,7 @@ export class AuthService {
     const email = input.email.toLowerCase()
 
     const user = await this.usersRepo.findOne({
-      where: { email: email, emailVerifiedAt: Not(IsNull()) }
+      where: { email: email }
     })
 
     if (!user) {
@@ -93,6 +93,14 @@ export class AuthService {
     const valid = await argon2.verify(user.passwordHash, input.password)
     if (!valid) {
       throw new AppError(ERR.INVALID_CREDENTIALS)
+    }
+
+    // check if the email is verified
+    if (!user.emailVerifiedAt) {
+      throw new AppError(
+        { ...ERR.FORBIDDEN, message: 'Email not verified.' },
+        { reason: 'EMAIL_NOT_VERIFIED', email }
+      )
     }
 
     const authUser = this.toAuthUser(user)
