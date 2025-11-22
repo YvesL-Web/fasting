@@ -9,6 +9,7 @@ import {
   loginSchema,
   registerSchema,
   requestPasswordResetSchema,
+  resendVerificationCodeSchema,
   resetPasswordSchema,
   verifyEmailSchema
 } from './auth-schemas'
@@ -170,6 +171,23 @@ authRouter.post('/verify-email', async (req: Request, res: Response, next: NextF
     const { email, code } = verifyEmailSchema.parse(req.body)
     await authService.verifyEmail({ email, code })
     res.status(200).json({ message: 'Email verified successfully.' })
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return next(AppError.fromZod(err))
+    }
+    return next(err)
+  }
+})
+
+authRouter.post('/resend-verification-code', async (req, res, next) => {
+  try {
+    const parsed = resendVerificationCodeSchema.parse(req.body)
+    await authService.resendVerificationEmail(parsed)
+
+    return res.status(200).json({
+      ok: true,
+      message: 'If an account exists and is not verified, a new code has been sent.'
+    })
   } catch (err) {
     if (err instanceof z.ZodError) {
       return next(AppError.fromZod(err))

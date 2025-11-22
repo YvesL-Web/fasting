@@ -28,6 +28,10 @@ export const verifyEmailSchema = z.object({
   code: z.string().length(6).regex(/^\d+$/)
 })
 
+export const resendVerificationCodeSchema = z.object({
+  email: z.email()
+})
+
 export const authUserSchema = userSchema
 
 export type RegisterInput = z.infer<typeof registerSchema>
@@ -36,3 +40,4 @@ export type AuthUser = z.infer<typeof authUserSchema>
 export type RequestPasswordResetInput = z.infer<typeof requestPasswordResetSchema>
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>
+export type ResendVerificationCodeInput = z.infer<typeof resendVerificationCodeSchema>

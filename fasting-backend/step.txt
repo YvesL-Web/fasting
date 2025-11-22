@@ -42,3 +42,6 @@ throw new AppError(
 
 Ajouter une bannière en haut du dashboard si l’email n’est pas vérifié (user.emailVerifiedAt === null), avec ce bouton intégré.
 Ou brancher les messages de backend encore plus finement (details.reason → message spécialisé côté front).
+
+refactorer login/register pour aussi utiliser des hooks useLogin, useRegister basés sur useMutation,
+puis attaquer la partie avatar / image de profil côté backend (champ dans UserEntity) + upload côté front (et éventuellement traitement via BullMQ).

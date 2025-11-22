@@ -8,7 +8,8 @@ import type {
   AuthUser,
   RequestPasswordResetInput,
   ResetPasswordInput,
-  VerifyEmailInput
+  VerifyEmailInput,
+  ResendVerificationCodeInput
 } from './auth-schemas'
 import { env } from '../../config/env'
 import { AppError, ERR } from '../../utils/error'
@@ -16,7 +17,7 @@ import { EmailVerificationTokenEntity } from './entities/email-verification-toke
 import { PasswordResetTokenEntity } from './entities/password-reset-token.entity'
 import { generateRandomToken, hashToken, verifyTokenHash } from './utils/token'
 import { addMinutes, isBefore } from 'date-fns'
-import { generateOtpCode, setOtp, verifyOtp } from '../../utils/otpService'
+import { checkOtpResendLimit, generateOtpCode, setOtp, verifyOtp } from '../../utils/otpService'
 import { enqueuePasswordResetEmail, enqueueVerificationEmail } from './auth-email-jobs'
 
 export class AuthService {
@@ -183,5 +184,39 @@ export class AuthService {
 
     user.emailVerifiedAt = new Date()
     await this.usersRepo.save(user)
+  }
+
+  async resendVerificationEmail(input: ResendVerificationCodeInput): Promise<void> {
+    const email = input.email.toLowerCase().trim()
+
+    const user = await this.usersRepo.findOne({ where: { email } })
+    if (!user) {
+      // On ne révèle pas si l'email existe ou non
+      return
+    }
+
+    if (user.emailVerifiedAt) {
+      // Déjà vérifié → rien à faire (on ne signale pas d'erreur côté client)
+      return
+    }
+
+    const allowed = await checkOtpResendLimit('email_verify', email, 5, 60 * 60) // max 5 / heure
+    if (!allowed) {
+      throw new AppError(
+        { ...ERR.RATE_LIMITED, message: 'Too many verification attempts. Please try later.' },
+        { reason: 'TOO_MANY_VERIFICATION_RESENDS', email }
+      )
+    }
+
+    const code = generateOtpCode()
+    const ttlSec = env.EMAIL_VERIFICATION_TTL_SECONDS ?? 900
+
+    await setOtp('email_verify', email, code, ttlSec)
+
+    await enqueueVerificationEmail({
+      name: user.displayName,
+      to: user.email,
+      code
+    })
   }
 }
