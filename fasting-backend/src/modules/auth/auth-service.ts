@@ -1,5 +1,5 @@
 import argon2 from 'argon2'
-import { IsNull, Not, Repository } from 'typeorm'
+import { Repository } from 'typeorm'
 
 import { UserEntity } from '../users/user.entity'
 import type {
@@ -13,12 +13,9 @@ import type {
 } from './auth-schemas'
 import { env } from '../../config/env'
 import { AppError, ERR } from '../../utils/error'
-import { EmailVerificationTokenEntity } from './entities/email-verification-token.entity'
-import { PasswordResetTokenEntity } from './entities/password-reset-token.entity'
-import { generateRandomToken, hashToken, verifyTokenHash } from './utils/token'
-import { addMinutes, isBefore } from 'date-fns'
 import { checkOtpResendLimit, generateOtpCode, setOtp, verifyOtp } from '../../utils/otpService'
 import { enqueuePasswordResetEmail, enqueueVerificationEmail } from './auth-email-jobs'
+import { destroyAllUserSessions } from './session-store'
 
 export class AuthService {
   constructor(private readonly usersRepo: Repository<UserEntity>) {}
@@ -110,11 +107,20 @@ export class AuthService {
   }
 
   async requestPasswordReset(input: RequestPasswordResetInput): Promise<void> {
+    const email = input.email.toLowerCase().trim()
     const user = await this.usersRepo.findOne({
-      where: { email: input.email.toLowerCase() }
+      where: { email }
     })
     if (!user) {
       return
+    }
+
+    const allowed = await checkOtpResendLimit('password_reset', email, 5, 60 * 60)
+    if (!allowed) {
+      throw new AppError(
+        { ...ERR.RATE_LIMITED, message: 'Too many reset attempts. Please try later.' },
+        { reason: 'TOO_MANY_PASSWORD_RESET_RESENDS', email }
+      )
     }
 
     const code = generateOtpCode()
@@ -126,7 +132,6 @@ export class AuthService {
       to: user.email,
       code
     })
-    return
   }
 
   async resetPassword(input: ResetPasswordInput): Promise<void> {
@@ -140,15 +145,15 @@ export class AuthService {
         { reason: 'RESET_USER_NOT_FOUND', email }
       )
     }
-    const { ok, reason } = await verifyOtp('password_reset', email, input.code)
+    const { ok, reason: otpReason } = await verifyOtp('password_reset', email, input.code)
     if (!ok) {
       const msg =
-        reason === 'too_many_attempts'
+        otpReason === 'too_many_attempts'
           ? 'Too many attempts. Try later.'
           : 'Invalid or expired code.'
       throw new AppError(
         { ...ERR.BAD_REQUEST, message: msg },
-        { reason: 'INVALID_OR_EXPIRED_PASSWORD_RESET_CODE', scope: 'password_reset' }
+        { reason: 'INVALID_OR_EXPIRED_PASSWORD_RESET_CODE', scope: 'password_reset', otpReason }
       )
     }
 
@@ -156,7 +161,7 @@ export class AuthService {
     await this.usersRepo.save(user)
 
     // invalider toutes les sessions
-    // deleteSessionsForUser(user.id)
+    await destroyAllUserSessions(user.id)
   }
 
   async verifyEmail(input: VerifyEmailInput): Promise<void> {
@@ -170,15 +175,15 @@ export class AuthService {
       )
     }
 
-    const { ok, reason } = await verifyOtp('email_verify', email, input.code)
+    const { ok, reason: otpReason } = await verifyOtp('email_verify', email, input.code)
     if (!ok) {
       const msg =
-        reason === 'too_many_attempts'
+        otpReason === 'too_many_attempts'
           ? 'Too many attempts. Try later.'
           : 'Invalid or expired code.'
       throw new AppError(
         { ...ERR.BAD_REQUEST, message: msg },
-        { reason: 'INVALID_OR_EXPIRED_EMAIL_VERIFICATION_CODE', scope: 'email_verify' }
+        { reason: 'INVALID_OR_EXPIRED_EMAIL_VERIFICATION_CODE', scope: 'email_verify', otpReason }
       )
     }
 

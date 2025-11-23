@@ -1,8 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
-import jwt from 'jsonwebtoken'
 import { env } from '../config/env'
 import { AppError, ERR } from '../utils/error'
-import { getSession, touchSession } from '../modules/auth/session-store'
+import { getSession } from '../modules/auth/session-store'
 
 export interface AuthRequest extends Request {
   userId?: string
@@ -32,9 +31,6 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
         )
       )
     }
-
-    // Sliding idle window
-    void touchSession(sid)
 
     req.userId = session.userId
     req.sessionId = sid

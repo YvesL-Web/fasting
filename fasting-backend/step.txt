@@ -45,3 +45,7 @@ Ou brancher les messages de backend encore plus finement (details.reason → mes
 
 refactorer login/register pour aussi utiliser des hooks useLogin, useRegister basés sur useMutation,
 puis attaquer la partie avatar / image de profil côté backend (champ dans UserEntity) + upload côté front (et éventuellement traitement via BullMQ).
+
+un composant AvatarUploader (input file + preview + mutation React Query),
+intégrer l’URL avatarUrl dans le User du front,
+l’afficher dans le header / dashboard.

@@ -11,6 +11,7 @@ import { requestLogger } from './middlewares/request-logger'
 import compression from 'compression'
 import { authRouter } from './modules/auth/auth-router'
 import { fastRouter } from './modules/fasts/fast.router'
+import { usersRouter } from './modules/users/user-router'
 
 export const createApp = () => {
   const app = express()
@@ -36,6 +37,7 @@ export const createApp = () => {
 
   // Routes
   app.use('/auth', authRouter)
+  app.use('/users', usersRouter)
   app.use('/fasts', fastRouter)
   app.use('/health', healthRouter)
 

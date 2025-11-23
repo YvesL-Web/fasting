@@ -45,7 +45,10 @@ export class UserEntity {
   emailVerifiedAt!: Date | null
 
   @Column({ type: 'varchar', length: 512, nullable: true })
-  avatarUrl?: string | null
+  avatarUrl!: string | null
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  avatarPublicId!: string | null
 
   @Column({ type: 'boolean', default: false }) // pour two-factor authentication
   totpEnabled!: boolean
