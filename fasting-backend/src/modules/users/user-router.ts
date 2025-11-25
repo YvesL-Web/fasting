@@ -7,6 +7,8 @@ import { UserEntity } from './user.entity'
 import { AppError, ERR } from '../../utils/error'
 import { cloudinary, deleteCloudinaryImage } from '../../config/cloudinary'
 import { env } from '../../config/env'
+import { updateProfileSchema } from './user-schema'
+import { z } from 'zod'
 
 export const usersRouter = Router()
 
@@ -131,5 +133,30 @@ usersRouter.delete('/me/avatar', authMiddleware, async (req: AuthRequest, res, n
     res.status(204).send()
   } catch (err) {
     next(err)
+  }
+})
+
+usersRouter.patch('/me', authMiddleware, async (req: AuthRequest, res, next) => {
+  try {
+    if (!req.userId) throw new AppError(ERR.UNAUTHORIZED)
+
+    const parsed = updateProfileSchema.parse(req.body)
+
+    const user = await usersRepo.findOne({ where: { id: req.userId } })
+    if (!user) {
+      throw new AppError(ERR.NOT_FOUND, 'User not found')
+    }
+
+    user.displayName = parsed.displayName
+    user.locale = parsed.locale
+    await usersRepo.save(user)
+
+    const { passwordHash: _ignored, ...safeUser } = user
+    res.status(200).json({ user: safeUser })
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return next(AppError.fromZod(err))
+    }
+    return next(err)
   }
 })

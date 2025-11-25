@@ -8,7 +8,7 @@ import {
   Index
 } from 'typeorm'
 import { UserEntity } from '../users/user.entity'
-import { FAST_TYPES } from '@fasting/shared'
+// import { FAST_TYPES } from '@fasting/shared'
 
 @Entity({ name: 'fasts' })
 export class FastEntity {
@@ -23,7 +23,8 @@ export class FastEntity {
     type: 'varchar',
     length: 10
   })
-  type!: (typeof FAST_TYPES)[number]
+  // type!: (typeof FAST_TYPES)[number]
+  type!: string // ex: '16_8', '18_6', 'OMAD'
 
   @Index()
   @Column({ type: 'timestamp' })
@@ -34,6 +35,10 @@ export class FastEntity {
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   notes!: string | null
+
+  // durée cible du jeûne, en heures (ex: 16 pour 16:8)
+  @Column({ type: 'int', nullable: true })
+  targetDurationHours!: number | null
 
   @CreateDateColumn()
   createdAt!: Date

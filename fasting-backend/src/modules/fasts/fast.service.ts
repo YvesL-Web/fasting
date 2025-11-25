@@ -1,7 +1,13 @@
 import { Repository, IsNull } from 'typeorm'
 import { differenceInHours, isBefore, startOfDay, subDays } from 'date-fns'
 import { FastEntity } from './fast.entity'
-import type { StartFastInput, StopFastInput, ListFastsQuery, FastStats } from './fast.schemas'
+import {
+  type StartFastInput,
+  type StopFastInput,
+  type ListFastsQuery,
+  type FastStats,
+  fastingPresets
+} from './fast.schemas'
 import { UserEntity } from '../users/user.entity'
 import { AppError, ERR } from '../../utils/error'
 
@@ -20,10 +26,7 @@ export class FastService {
   async startFast(userId: string, input: StartFastInput): Promise<FastEntity> {
     const user = await this.usersRepo.findOne({ where: { id: userId } })
     if (!user) {
-      throw new AppError(
-        { ...ERR.NOT_FOUND, message: 'User not found.' },
-        { reason: 'USER_NOT_FOUND', userId }
-      )
+      throw new AppError({ ...ERR.NOT_FOUND, message: 'User not found.' })
     }
 
     const existing = await this.getCurrentFast(userId)
@@ -34,12 +37,16 @@ export class FastService {
       )
     }
 
+    const preset = fastingPresets.find((p) => p.id === input.type)
+    const targetDurationHours = preset?.fastingHours ?? null
+
     const fast = this.fastsRepo.create({
       user,
       type: input.type,
       startAt: input.startAt ?? new Date(),
       endAt: null,
-      notes: input.notes ?? null
+      notes: input.notes ?? null,
+      targetDurationHours
     })
 
     return this.fastsRepo.save(fast)
@@ -83,7 +90,7 @@ export class FastService {
   }
 
   async getStats(userId: string): Promise<FastStats> {
-    // On récupère tous les fasts (finis + en cours) pour stats
+    // ⚠️ ici tu avais un bug: where: endAt IsNull() au lieu de "tous les fasts" pour la première requête
     const allFasts = await this.fastsRepo.find({
       where: { user: { id: userId } },
       order: { startAt: 'ASC' }

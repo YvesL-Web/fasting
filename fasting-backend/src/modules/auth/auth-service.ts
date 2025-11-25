@@ -9,7 +9,8 @@ import type {
   RequestPasswordResetInput,
   ResetPasswordInput,
   VerifyEmailInput,
-  ResendVerificationCodeInput
+  ResendVerificationCodeInput,
+  ChangePasswordInput
 } from './auth-schemas'
 import { env } from '../../config/env'
 import { AppError, ERR } from '../../utils/error'
@@ -223,5 +224,25 @@ export class AuthService {
       to: user.email,
       code
     })
+  }
+
+  async changePassword(userId: string, input: ChangePasswordInput): Promise<void> {
+    const user = await this.usersRepo.findOne({ where: { id: userId } })
+    if (!user) {
+      throw new AppError(ERR.NOT_FOUND, 'User not found')
+    }
+
+    const valid = await argon2.verify(user.passwordHash, input.currentPassword)
+    if (!valid) {
+      throw new AppError(
+        { ...ERR.BAD_REQUEST, message: 'Current password is incorrect.' },
+        { reason: 'INVALID_CURRENT_PASSWORD' }
+      )
+    }
+
+    user.passwordHash = await argon2.hash(input.newPassword)
+    await this.usersRepo.save(user)
+
+    await destroyAllUserSessions(user.id)
   }
 }

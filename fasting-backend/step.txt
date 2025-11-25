@@ -8,44 +8,5 @@
 
 Meals (suivi de repas + calories)
 
--------
-améliorer l’UX (loading states, toasts, gestion des erreurs)
-
-ou commencer à intégrer password reset / email verification aussi côté front
-
-ou structurer le front en “features” pour garder un code très scalable.
-
-
-token:
-"refreshToken": "4e38d1ef2e2556809f18b1af96150a1b1b411e977b5ec6c5cb39dedcdca82850"
-
-
-
-Si tu veux, au prochain message, on peut faire un petit ProtectedLayout réutilisable (pour toutes les pages logged-in) qui utilise useCurrentUser, 
-et ton DashboardPage se contenterait juste d’afficher les fasts/stats en étant sûr que l’utilisateur est authentifié.
-
-Si tu veux, ensuite on peut faire pareil pour /auth/me avec un useCurrentUser qui utilise apiFetch("/auth/me") + auto-logout, pour les layouts protégés.
-
-Si tu veux après ça, on peut aussi ajuster le backend pour que message soit directement user-friendly ("Fast already running"), et garder details pour quelque chose de plus structuré.
-
-// exemple pour un jeûne déjà en cours dans ton FastService (pseudo-code)
-throw new AppError(
-  { ...ERR.CONFLICT, message: 'Un jeûne est déjà en cours.' },
-  { reason: 'FAST_ALREADY_RUNNING' } // details structuré
-)
-
-throw new AppError(
-  { ...ERR.BAD_REQUEST, message: 'Lien de réinitialisation invalide ou expiré.' },
-  { reason: 'INVALID_OR_EXPIRED_PASSWORD_RESET_TOKEN' }
-)
-
-
-Ajouter une bannière en haut du dashboard si l’email n’est pas vérifié (user.emailVerifiedAt === null), avec ce bouton intégré.
-Ou brancher les messages de backend encore plus finement (details.reason → message spécialisé côté front).
-
-refactorer login/register pour aussi utiliser des hooks useLogin, useRegister basés sur useMutation,
-puis attaquer la partie avatar / image de profil côté backend (champ dans UserEntity) + upload côté front (et éventuellement traitement via BullMQ).
-
-un composant AvatarUploader (input file + preview + mutation React Query),
-intégrer l’URL avatarUrl dans le User du front,
-l’afficher dans le header / dashboard.
+soit d’ajouter la notion de fenêtre d’alimentation explicite (et indiquer visuellement “tu es dans ta eating window / fasting window”),
+soit d’attaquer le journal alimentaire (manuel d’abord), base pour le futur module “calories scanner IA”.

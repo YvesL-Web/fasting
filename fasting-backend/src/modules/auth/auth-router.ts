@@ -6,6 +6,7 @@ import { appDataSource } from '../../infra/db'
 import { UserEntity } from '../users/user.entity'
 import { AuthService } from './auth-service'
 import {
+  changePasswordSchema,
   loginSchema,
   registerSchema,
   requestPasswordResetSchema,
@@ -16,7 +17,12 @@ import {
 import type { AuthRequest } from '../../middlewares/auth'
 import { authMiddleware } from '../../middlewares/auth'
 import { AppError, ERR } from '../../utils/error'
-import { createSession, destroySession } from './session-store'
+import {
+  createSession,
+  destroyAllUserSessions,
+  destroySession,
+  listUserSessions
+} from './session-store'
 import { clearSessionCookie, setSessionCookie } from './session-cookie'
 import { env } from '../../config/env'
 
@@ -158,6 +164,90 @@ authRouter.post('/resend-verification-code', async (req, res, next) => {
     if (err instanceof z.ZodError) {
       return next(AppError.fromZod(err))
     }
+    return next(err)
+  }
+})
+
+authRouter.post('/change-password', authMiddleware, async (req: AuthRequest, res, next) => {
+  try {
+    if (!req.userId) {
+      throw new AppError(ERR.UNAUTHORIZED)
+    }
+
+    const parsed = changePasswordSchema.parse(req.body)
+
+    await authService.changePassword(req.userId, parsed)
+
+    // On invalide cookie local : l’utilisateur devra se reconnecter
+    clearSessionCookie(res)
+
+    res.status(204).send()
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return next(AppError.fromZod(err))
+    }
+    return next(err)
+  }
+})
+
+authRouter.post('/logout-all', authMiddleware, async (req: AuthRequest, res, next) => {
+  try {
+    if (!req.userId) throw new AppError(ERR.UNAUTHORIZED)
+
+    await destroyAllUserSessions(req.userId)
+    clearSessionCookie(res)
+
+    res.status(204).send()
+  } catch (err) {
+    return next(err)
+  }
+})
+
+authRouter.get('/sessions', authMiddleware, async (req: AuthRequest, res, next) => {
+  try {
+    if (!req.userId) throw new AppError(ERR.UNAUTHORIZED)
+
+    const sessions = await listUserSessions(req.userId)
+    const currentId = req.sessionId
+
+    const payload = sessions.map((s) => ({
+      id: s.id,
+      ip: s.ip ?? null,
+      userAgent: s.userAgent ?? null,
+      createdAt: s.createdAt,
+      isCurrent: s.id === currentId
+    }))
+
+    res.status(200).json({ sessions: payload })
+  } catch (err) {
+    return next(err)
+  }
+})
+
+authRouter.delete('/sessions/:id', authMiddleware, async (req: AuthRequest, res, next) => {
+  try {
+    if (!req.userId) throw new AppError(ERR.UNAUTHORIZED)
+
+    const sessionIdToDelete = req.params.id
+    if (!sessionIdToDelete) {
+      throw new AppError(ERR.BAD_REQUEST, 'Missing session id')
+    }
+
+    // Vérifier que la session appartient bien à ce user
+    const sessions = await listUserSessions(req.userId)
+    const target = sessions.find((s) => s.id === sessionIdToDelete)
+    if (!target) {
+      throw new AppError(
+        { ...ERR.NOT_FOUND, message: 'Session not found.' },
+        { reason: 'SESSION_NOT_FOUND' }
+      )
+    }
+
+    // On détruit cette session
+    await destroySession(sessionIdToDelete)
+
+    res.status(204).send()
+  } catch (err) {
     return next(err)
   }
 })

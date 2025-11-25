@@ -1,4 +1,3 @@
-// src/modules/auth/session-store.ts
 import crypto from 'crypto'
 import { ensureRedis, redis } from '../../config/ioredis'
 import { env } from '../../config/env'
@@ -8,9 +7,12 @@ const SESSION_TTL_SECONDS = env.SESSION_TTL_SECONDS ?? 60 * 60 * 24 * 7 // 7 jou
 type SessionData = {
   userId: string
   createdAt: string
-  // optionnel: tu peux rajouter ip, userAgent, etc.
   ip?: string | null
   userAgent?: string | null
+}
+
+export type SessionInfo = SessionData & {
+  id: string
 }
 
 const sessionKey = (id: string) => `session:${id}`
@@ -94,4 +96,29 @@ export async function destroyAllUserSessions(userId: string): Promise<void> {
   }
   multi.del(userKey)
   await multi.exec()
+}
+
+export async function listUserSessions(userId: string): Promise<SessionInfo[]> {
+  await ensureRedis()
+  const ids = await redis.smembers(userSessionsKey(userId))
+  if (ids.length === 0) return []
+
+  const multi = redis.multi()
+  for (const id of ids) {
+    multi.get(sessionKey(id))
+  }
+  const results = await multi.exec()
+
+  const sessions: SessionInfo[] = []
+  results?.forEach((res, idx) => {
+    const [err, value] = res as [Error | null, string | null]
+    if (err || !value) return
+    try {
+      const data = JSON.parse(value) as SessionData
+      sessions.push({ id: ids[idx], ...data })
+    } catch {
+      // ignore malformed
+    }
+  })
+  return sessions
 }

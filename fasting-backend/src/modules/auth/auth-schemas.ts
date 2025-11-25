@@ -32,6 +32,11 @@ export const resendVerificationCodeSchema = z.object({
   email: z.email()
 })
 
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(8).max(100),
+  newPassword: z.string().min(8).max(100)
+})
+
 export const authUserSchema = userSchema
 
 export type RegisterInput = z.infer<typeof registerSchema>
@@ -41,3 +46,4 @@ export type RequestPasswordResetInput = z.infer<typeof requestPasswordResetSchem
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>
 export type ResendVerificationCodeInput = z.infer<typeof resendVerificationCodeSchema>
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>

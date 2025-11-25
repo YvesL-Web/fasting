@@ -4,7 +4,12 @@ import { appDataSource } from '../../infra/db'
 import { FastEntity } from './fast.entity'
 import { UserEntity } from '../users/user.entity'
 import { FastService } from './fast.service'
-import { startFastSchema, stopFastSchema, listFastsQuerySchema } from './fast.schemas'
+import {
+  startFastSchema,
+  stopFastSchema,
+  listFastsQuerySchema,
+  fastingPresets
+} from './fast.schemas'
 import type { AuthRequest } from '../../middlewares/auth'
 import { authMiddleware } from '../../middlewares/auth'
 import { AppError, ERR } from '../../utils/error'
@@ -18,16 +23,42 @@ export const fastRouter = Router()
 fastRouter.use(authMiddleware)
 
 const toFastResponse = (fast: FastEntity) => {
+  let fastTargetEndAt: Date | null = null
+  let eatingWindowStartAt: Date | null = null
+  let eatingWindowEndAt: Date | null = null
+
+  if (fast.targetDurationHours && fast.targetDurationHours > 0) {
+    const startMs = fast.startAt.getTime()
+    const fastingMs = fast.targetDurationHours * 60 * 60 * 1000
+    fastTargetEndAt = new Date(startMs + fastingMs)
+
+    const preset = fastingPresets.find((p) => p.id === fast.type)
+    if (preset) {
+      const eatingMs = preset.eatingHours * 60 * 60 * 1000
+      eatingWindowStartAt = fastTargetEndAt
+      eatingWindowEndAt = new Date(fastTargetEndAt.getTime() + eatingMs)
+    }
+  }
+
   return {
     id: fast.id,
     type: fast.type,
     startAt: fast.startAt,
     endAt: fast.endAt,
     notes: fast.notes,
+    targetDurationHours: fast.targetDurationHours,
+    fastTargetEndAt,
+    eatingWindowStartAt,
+    eatingWindowEndAt,
     createdAt: fast.createdAt,
     updatedAt: fast.updatedAt
   }
 }
+
+// GET /fasts/presets
+fastRouter.get('/presets', (_req, res) => {
+  res.status(200).json({ presets: fastingPresets })
+})
 
 // POST /fasts/start
 fastRouter.post('/start', async (req: AuthRequest, res, next) => {
