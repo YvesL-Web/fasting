@@ -7,6 +7,7 @@ import { RefreshTokenEntity } from '../modules/auth/entities/refresh-token.entit
 import { EmailVerificationTokenEntity } from '../modules/auth/entities/email-verification-token.entity'
 import { PasswordResetTokenEntity } from '../modules/auth/entities/password-reset-token.entity'
 import { FastEntity } from '../modules/fasts/fast.entity'
+import { FoodEntryEntity } from '../modules/food/food-entry.entity'
 
 export const appDataSource = new DataSource({
   type: 'postgres',
@@ -20,7 +21,8 @@ export const appDataSource = new DataSource({
     RefreshTokenEntity,
     EmailVerificationTokenEntity,
     PasswordResetTokenEntity,
-    FastEntity
+    FastEntity,
+    FoodEntryEntity
   ],
   synchronize: false, // toujours false en prod
   logging: env.IS_DEV ? ['error', 'schema'] : ['error'],

@@ -1,35 +1,157 @@
-1.4. Refresh tokens : fonctionnel, mais lookup O(n)
+next setp:
 
-Pattern actuel :
+1️⃣ Pourquoi le journal alimentaire maintenant ?
 
-Tu stockes un tokenHash (hash du refresh token) dans la DB.
+Tu as déjà :
 
-Pour trouver un refresh token, tu fais :
+✅ Un cœur “jeûne” très solide (types, timer, fenêtres fasting/eating).
 
-const allTokens = await this.refreshTokensRepo.find({ relations: ['user'] })
-const match = await Promise.all(
-  allTokens.map(async (t) => ({
-    token: t,
-    valid: await verifyTokenHash(t.tokenHash, refreshTokenPlain)
-  }))
-)
-const found = match.find((m) => m.valid)?.token
+✅ Un compte / sécurité / sessions de niveau pro.
 
+✅ Une base UI propre (dashboard + settings).
 
-✅ Sécurité :
+Tes grosses features premium tournent autour de :
 
-refresh token opaque, aléatoire, hashé → très bien, rien à dire là-dessus.
+IA calories / scanner,
 
-⚠️ Perf :
+Coach IA,
 
-pour chaque refresh / logout, tu fais un find() sur tous les refresh tokens, puis un argon2.verify sur chaque.
-→ Ça passe pour un side project / petit projet, mais à scale ça ne tiendra pas.
+Meal prep intelligent,
 
-Pas besoin de tout changer maintenant, mais à garder en tête.
-Plus tard, tu pourras :
+Stats avancées.
 
-soit ajouter une colonne selector (random public id), rechercher dessus, puis vérifier le hash ;
+👉 Toutes ces briques ont besoin d’historique alimentaire pour être vraiment utiles.
 
-soit passer à des refresh tokens JWT signés (mais tu perds le “revoke by row” simple).
+Si on fait d’abord des crons qui envoient juste “ton jeûne est fini”, c’est sympa mais pas transformant pour le produit.
+Par contre, si tu ajoutes :
 
-Pour l’instant : c’est ok si tu acceptes le côté “dev / petit volume”.
+“Ce que tu as mangé pendant ta fenêtre d’alimentation (et en dehors)”
+
+tu peux ensuite :
+
+montrer des stats super parlantes :
+“Les jours où tu respectes la fenêtre, tu manges 25% de calories en moins”
+
+nourrir ton futur coach IA :
+“Tu as tendance à manger tard hors fenêtre, surtout le vendredi soir…”
+
+préparer l’arrivée du scanner IA : d’abord tu saisis à la main, plus tard tu prends une photo.
+
+Donc côté impact produit, je ferais :
+
+✅ Next step : Journal alimentaire (manuel) qui respecte les fenêtres d’alimentation
+
+2️⃣ Comment je structurerais la suite
+Étape A – Backend : modèle “FoodEntry”
+
+Ajouter une entité :
+
+FoodEntryEntity (ou MealEntry) :
+
+id
+
+user
+
+fast (optionnel, si tu veux lier à un jeûne précis)
+
+loggedAt (Date)
+
+label (texte libre : “Poulet + riz”)
+
+calories (nombre optionnel)
+
+protein / carbs / fat (optionnels pour plus tard)
+
+inEatingWindow: boolean (calculé à l’écriture, en fonction de la fenêtre actuelle)
+
+Endpoints simples :
+
+POST /food-entries : créer une entrée :
+
+le backend regarde le loggedAt (ou now) et vérifie :
+
+y a-t-il un jeûne en cours ou récent ?
+
+est-on entre eatingWindowStartAt et eatingWindowEndAt ?
+
+il met inEatingWindow = true/false.
+
+GET /food-entries?date=YYYY-MM-DD :
+
+retourne les repas de la journée (ou d’une plage de dates).
+
+Logique fenêtre :
+
+Même si aucun jeûne n’est actif : on accepte quand même l’entrée, mais inEatingWindow = false ou null.
+
+Si un jeûne actif a une fenêtre calculée autour → on utilise celle-là.
+
+Étape B – Front : UI “Ce que tu as mangé aujourd’hui”
+
+Sur le Dashboard :
+
+une carte “Journal alimentaire” :
+
+petit form :
+
+champ “Ce que tu as mangé”
+
+champ optionnel “Calories”
+
+liste des entrées du jour :
+
+badge “✅ Dans la fenêtre” ou “⚠️ Hors fenêtre”
+
+heure + label + calories.
+
+possible mini résumé :
+
+“Total : 1450 kcal (1200 en fenêtre / 250 hors fenêtre)”
+
+Integrations avec ce qu’on a déjà :
+
+On sait déjà si on est dans eating window via useFastTimer.
+
+On peut montrer un message sympa genre :
+
+“Tu es dans ta fenêtre d’alimentation 🍽️”
+
+“Attention, tu es hors fenêtre de repas ⚠️”
+
+Étape C – Ce que ça débloque ensuite
+
+Une fois ce bloc en place, tu pourras :
+
+ajouter des stats avancées :
+“En moyenne, tu manges X calories par fenêtre”,
+“Tes jours avec un jeûne 18:6 sont ceux où tu manges le moins.”
+
+brancher ton Fasting Coach IA :
+L’IA peut interpreter : “Tu manges souvent hors fenêtre le soir après 22h.”
+
+ajouter le scanner IA de calories :
+
+même endpoint, mais au lieu d’envoyer label + calories, tu enverras une image → l’IA remplira ces champs.
+
+3️⃣ Et BullMQ / crons alors ?
+
+Je le garderais pour l’étape suivante, avec un angle clair :
+
+pas pour auto-stop les jeûnes (trop agressif pour l’UX),
+
+mais pour :
+
+envoyer un rappel “ton jeûne est terminé, pense à arrêter”,
+
+prévenir 15 minutes avant fin de fenêtre d’alimentation,
+
+envoyer un récap hebdo (“Tu as complété 5 jeûnes cette semaine, moyenne 17,3h”).
+
+Tu as déjà Redis + BullMQ + email worker, donc quand tu voudras ajouter ce genre de “smart reminders”, on pourra brancher ça rapidement.
+
+4️⃣ Donc, concrètement : next step
+
+Ce que je te propose pour la prochaine réponse :
+
+👉 Commencer par le backend du journal alimentaire
+(entité FoodEntry, schémas Zod, routes POST /food-entries + GET /food-entries avec calcul inEatingWindow basé sur les fenêtres qu’on vient de mettre en place).
