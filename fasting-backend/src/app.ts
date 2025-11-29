@@ -13,6 +13,7 @@ import { authRouter } from './modules/auth/auth-router'
 import { fastRouter } from './modules/fasts/fast.router'
 import { usersRouter } from './modules/users/user-router'
 import { foodEntriesRouter } from './modules/food/food-entry.router'
+import { coachRouter } from './modules/coach/coach.router'
 
 export const createApp = () => {
   const app = express()
@@ -42,6 +43,7 @@ export const createApp = () => {
   app.use('/fasts', fastRouter)
   app.use('/food-entries', foodEntriesRouter)
   app.use('/health', healthRouter)
+  app.use('/coach', coachRouter)
 
   // 404
   app.use(notFoundHandler)

@@ -64,7 +64,10 @@ const envSchema = z.object({
   SESSION_COOKIE_DOMAIN: z.string().optional(),
 
   // Frontend
-  FRONTEND_BASE_URL: z.string().default('http://localhost:3000')
+  FRONTEND_BASE_URL: z.string().default('http://localhost:3000'),
+
+  // OpenAI
+  OPENAI_API_KEY: z.string().min(10)
 })
 
 const raw = envSchema.parse(process.env)

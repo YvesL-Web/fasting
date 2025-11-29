@@ -6,7 +6,11 @@ import { FoodEntryEntity } from './food-entry.entity'
 import { FastEntity } from '../fasts/fast.entity'
 import { UserEntity } from '../users/user.entity'
 import { FoodEntryService } from './food-entry.service'
-import { createFoodEntrySchema, listFoodEntriesQuerySchema } from './food-entry.schemas'
+import {
+  createFoodEntrySchema,
+  foodSummaryQuerySchema,
+  listFoodEntriesQuerySchema
+} from './food-entry.schemas'
 import type { AuthRequest } from '../../middlewares/auth'
 import { authMiddleware } from '../../middlewares/auth'
 import { AppError, ERR } from '../../utils/error'
@@ -41,7 +45,6 @@ foodEntriesRouter.post('/', async (req: AuthRequest, res, next) => {
     if (!req.userId) throw new AppError(ERR.UNAUTHORIZED)
 
     const parsed = createFoodEntrySchema.parse(req.body)
-
     const entry = await foodService.createEntry(req.userId, parsed)
 
     res.status(201).json({ entry: toFoodEntryResponse(entry) })
@@ -59,12 +62,28 @@ foodEntriesRouter.get('/', async (req: AuthRequest, res, next) => {
     if (!req.userId) throw new AppError(ERR.UNAUTHORIZED)
 
     const query = listFoodEntriesQuerySchema.parse(req.query)
-
     const entries = await foodService.listEntries(req.userId, query)
 
     res.status(200).json({
       entries: entries.map(toFoodEntryResponse)
     })
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return next(AppError.fromZod(err))
+    }
+    return next(err)
+  }
+})
+
+// GET /food-entries/summary?from=YYYY-MM-DD&to=YYYY-MM-DD
+foodEntriesRouter.get('/summary', async (req: AuthRequest, res, next) => {
+  try {
+    if (!req.userId) throw new AppError(ERR.UNAUTHORIZED)
+
+    const query = foodSummaryQuerySchema.parse(req.query)
+    const summary = await foodService.getSummary(req.userId, query)
+
+    res.status(200).json(summary)
   } catch (err) {
     if (err instanceof z.ZodError) {
       return next(AppError.fromZod(err))

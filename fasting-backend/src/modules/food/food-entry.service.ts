@@ -1,10 +1,16 @@
 import { Repository, Between } from 'typeorm'
-import { startOfDay, endOfDay } from 'date-fns'
+import { startOfDay, endOfDay, formatDate, eachDayOfInterval, subDays } from 'date-fns'
 
 import { FoodEntryEntity } from './food-entry.entity'
 import { FastEntity } from '../fasts/fast.entity'
 import { UserEntity } from '../users/user.entity'
-import type { CreateFoodEntryInput, ListFoodEntriesQuery } from './food-entry.schemas'
+import type {
+  CreateFoodEntryInput,
+  FoodDaySummary,
+  FoodSummaryQuery,
+  ListFoodEntriesQuery,
+  foodSummaryQuerySchema
+} from './food-entry.schemas'
 import { fastingPresets } from '../fasts/fast.schemas'
 import { AppError, ERR } from '../../utils/error'
 
@@ -111,5 +117,73 @@ export class FoodEntryService {
       order: { loggedAt: 'ASC' },
       relations: ['fast']
     })
+  }
+
+  async getSummary(
+    userId: string,
+    query: FoodSummaryQuery
+  ): Promise<{ from: string; to: string; days: FoodDaySummary[] }> {
+    const today = new Date()
+
+    const fromDate = query.from ? new Date(query.from + 'T00:00:00') : subDays(today, 6)
+    const toDate = query.to ? new Date(query.to + 'T00:00:00') : today
+
+    const from = startOfDay(fromDate)
+    const to = endOfDay(toDate)
+
+    const entries = await this.foodRepo.find({
+      where: {
+        user: { id: userId },
+        loggedAt: Between(from, to)
+      },
+      order: { loggedAt: 'ASC' }
+    })
+
+    const map = new Map<string, FoodDaySummary>()
+
+    for (const entry of entries) {
+      const dayKey = formatDate(entry.loggedAt, 'yyyy-MM-dd')
+      const cals = entry.calories ?? 0
+
+      let rec = map.get(dayKey)
+      if (!rec) {
+        rec = {
+          day: dayKey,
+          totalCalories: 0,
+          inWindowCalories: 0,
+          outWindowCalories: 0,
+          entriesCount: 0
+        }
+        map.set(dayKey, rec)
+      }
+
+      rec.totalCalories += cals
+      if (entry.inEatingWindow) {
+        rec.inWindowCalories += cals
+      } else {
+        rec.outWindowCalories += cals
+      }
+      rec.entriesCount += 1
+    }
+
+    const allDays = eachDayOfInterval({ start: from, end: to })
+    const days: FoodDaySummary[] = allDays.map((d) => {
+      const key = formatDate(d, 'yyyy-MM-dd')
+      return (
+        map.get(key) ?? {
+          day: key,
+          totalCalories: 0,
+          inWindowCalories: 0,
+          outWindowCalories: 0,
+          entriesCount: 0
+        }
+      )
+    })
+
+    return {
+      from: formatDate(from, 'yyyy-MM-dd'),
+      to: formatDate(to, 'yyyy-MM-dd'),
+      days
+    }
   }
 }
