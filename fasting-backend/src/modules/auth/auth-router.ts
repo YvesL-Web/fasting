@@ -49,9 +49,13 @@ authRouter.post('/login', async (req: Request, res: Response, next: NextFunction
   try {
     const parsed = loginSchema.parse(req.body)
     const { user } = await authService.login(parsed)
+    const ip =
+      (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ??
+      req.socket.remoteAddress ??
+      null
 
     const sessionId = await createSession(user.id, {
-      ip: req.ip,
+      ip: ip,
       userAgent: req.headers['user-agent']
     })
     setSessionCookie(res, sessionId)
@@ -179,6 +183,7 @@ authRouter.post('/change-password', authMiddleware, async (req: AuthRequest, res
     await authService.changePassword(req.userId, parsed)
 
     // On invalide cookie local : l’utilisateur devra se reconnecter
+    await destroyAllUserSessions(req.userId)
     clearSessionCookie(res)
 
     res.status(204).send()

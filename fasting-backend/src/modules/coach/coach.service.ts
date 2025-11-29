@@ -2,13 +2,13 @@ import { Repository } from 'typeorm'
 import { subDays, format as formatDate } from 'date-fns'
 
 import { FastEntity } from '../fasts/fast.entity'
-import { FoodEntryEntity } from '../food/food-entry.entity'
+import { FoodEntryEntity } from '../food/entities/food-entry.entity'
 import { UserEntity } from '../users/user.entity'
-import { FoodEntryService } from '../food/food-entry.service'
+import { FoodEntryService } from '../food/services/food-entry.service'
 import type { FastFeedbackInput } from './coach.schemas'
 
 import { AppError, ERR } from '../../utils/error'
-import { FoodDaySummary } from '../food/food-entry.schemas'
+import { FoodDaySummary } from '../food/schemas/food-entry.schemas'
 import { openai } from '../../config/openai'
 
 export type CoachFeedback = {
@@ -84,95 +84,113 @@ export class CoachService {
     const userPrompt =
       locale === 'fr'
         ? `
-Voici les données du dernier jeûne de l'utilisateur:
+          Voici les données du dernier jeûne de l'utilisateur:
 
-- Type: ${type}
-- Durée réelle: ${durationHours.toFixed(1)} heures
-- Durée cible: ${targetHours ? `${targetHours} heures` : 'non définie'}
-- Démarré le: ${fast.startAt.toISOString()}
-- Terminé le: ${fast.endAt ? fast.endAt.toISOString() : 'encore en cours'}
+          - Type: ${type}
+          - Durée réelle: ${durationHours.toFixed(1)} heures
+          - Durée cible: ${targetHours ? `${targetHours} heures` : 'non définie'}
+          - Démarré le: ${fast.startAt.toISOString()}
+          - Terminé le: ${fast.endAt ? fast.endAt.toISOString() : 'encore en cours'}
 
-Historique alimentation (7 derniers jours):
-${foodSummaryText || 'Aucune donnée.'}
+          Historique alimentation (7 derniers jours):
+          ${foodSummaryText || 'Aucune donnée.'}
 
-Objectif: Donne un retour synthétique (max ~8 phrases) qui inclut:
-1. Ce que l'utilisateur fait bien.
-2. 2 à 3 pistes concrètes d'amélioration.
-3. Une suggestion pour le prochain jeûne (durée, timing, alimentation).
-4. Un ton motivant, sans jugement.
+          Objectif: Donne un retour synthétique (max ~8 phrases) qui inclut:
+          1. Ce que l'utilisateur fait bien.
+          2. 2 à 3 pistes concrètes d'amélioration.
+          3. Une suggestion pour le prochain jeûne (durée, timing, alimentation).
+          4. Un ton motivant, sans jugement.
 
-Réponds au format JSON STRICT avec les clés:
-{
-  "message": "paragraphe principal",
-  "tips": ["tip 1", "tip 2", "tip 3"]
-}
-`
+          Réponds au format JSON STRICT avec les clés:
+          {
+            "message": "paragraphe principal",
+            "tips": ["tip 1", "tip 2", "tip 3"]
+          }
+          `
         : locale === 'de'
         ? `
-Hier sind die Daten des letzten Fastens des Nutzers:
+          Hier sind die Daten des letzten Fastens des Nutzers:
 
-- Typ: ${type}
-- Tatsächliche Dauer: ${durationHours.toFixed(1)} Stunden
-- Ziel-Dauer: ${targetHours ? `${targetHours} Stunden` : 'nicht definiert'}
-- Start: ${fast.startAt.toISOString()}
-- Ende: ${fast.endAt ? fast.endAt.toISOString() : 'läuft noch'}
+          - Typ: ${type}
+          - Tatsächliche Dauer: ${durationHours.toFixed(1)} Stunden
+          - Ziel-Dauer: ${targetHours ? `${targetHours} Stunden` : 'nicht definiert'}
+          - Start: ${fast.startAt.toISOString()}
+          - Ende: ${fast.endAt ? fast.endAt.toISOString() : 'läuft noch'}
 
-Ernährungs-Historie (letzte 7 Tage):
-${foodSummaryText || 'Keine Daten.'}
+          Ernährungs-Historie (letzte 7 Tage):
+          ${foodSummaryText || 'Keine Daten.'}
 
-Ziel: Gib kurzes Feedback (max ~8 Sätze), das enthält:
-1. Was der Nutzer gut macht.
-2. 2–3 konkrete Verbesserungsvorschläge.
-3. Eine Empfehlung für das nächste Fasten (Dauer, Timing, Ernährung).
-4. Einen motivierenden, nicht wertenden Ton.
+          Ziel: Gib kurzes Feedback (max ~8 Sätze), das enthält:
+          1. Was der Nutzer gut macht.
+          2. 2–3 konkrete Verbesserungsvorschläge.
+          3. Eine Empfehlung für das nächste Fasten (Dauer, Timing, Ernährung).
+          4. Einen motivierenden, nicht wertenden Ton.
 
-Antwort STRICT als JSON mit den Keys:
-{
-  "message": "Haupt-Abschnitt",
-  "tips": ["Tipp 1", "Tipp 2", "Tipp 3"]
-}
-`
+          Antwort STRICT als JSON mit den Keys:
+          {
+            "message": "Haupt-Abschnitt",
+            "tips": ["Tipp 1", "Tipp 2", "Tipp 3"]
+          }
+          `
         : `
-Here is the user's last fast:
+          Here is the user's last fast:
 
-- Type: ${type}
-- Actual duration: ${durationHours.toFixed(1)} hours
-- Target duration: ${targetHours ? `${targetHours} hours` : 'not set'}
-- Started at: ${fast.startAt.toISOString()}
-- Ended at: ${fast.endAt ? fast.endAt.toISOString() : 'still ongoing'}
+          - Type: ${type}
+          - Actual duration: ${durationHours.toFixed(1)} hours
+          - Target duration: ${targetHours ? `${targetHours} hours` : 'not set'}
+          - Started at: ${fast.startAt.toISOString()}
+          - Ended at: ${fast.endAt ? fast.endAt.toISOString() : 'still ongoing'}
 
-Food history (last 7 days):
-${foodSummaryText || 'No data.'}
+          Food history (last 7 days):
+          ${foodSummaryText || 'No data.'}
 
-Goal: Provide concise feedback (max ~8 sentences) including:
-1. What the user is doing well.
-2. 2–3 specific suggestions for improvement.
-3. A recommendation for the next fast (duration, timing, nutrition).
-4. A friendly, motivating tone.
+          Goal: Provide concise feedback (max ~8 sentences) including:
+          1. What the user is doing well.
+          2. 2–3 specific suggestions for improvement.
+          3. A recommendation for the next fast (duration, timing, nutrition).
+          4. A friendly, motivating tone.
 
-Reply in STRICT JSON with keys:
-{
-  "message": "main paragraph",
-  "tips": ["tip 1", "tip 2", "tip 3"]
-}
-`
+          Reply in STRICT JSON with keys:
+          {
+            "message": "main paragraph",
+            "tips": ["tip 1", "tip 2", "tip 3"]
+          }
+          `
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.7
-    })
+    let raw = ''
 
-    const raw = completion.choices[0]?.message?.content ?? ''
+    try {
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.7
+      })
+
+      raw = completion.choices[0]?.message?.content ?? ''
+    } catch (e: any) {
+      // log détaillé pour comprendre
+      console.error('[coach] OpenAI error', {
+        status: e?.status,
+        message: e?.message,
+        code: e?.code,
+        data: e?.response?.data
+      })
+
+      // On enveloppe ça dans un AppError générique côté client
+      throw new AppError(
+        { ...ERR.SERVER_ERROR, message: 'Le coach est temporairement indisponible.' },
+        { reason: 'OPENAI_ERROR', status: e?.status, code: e?.code }
+      )
+    }
 
     let parsed: CoachFeedback | null = null
     try {
       parsed = JSON.parse(raw) as CoachFeedback
     } catch {
-      // fallback super simple si le modèle ne retourne pas du JSON propre
+      // fallback si le modèle n'a pas envoyé un JSON strict
       parsed = {
         message: raw || "Je n'ai pas pu générer un feedback structuré pour ce jeûne.",
         tips: []

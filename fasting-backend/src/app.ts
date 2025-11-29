@@ -12,8 +12,9 @@ import compression from 'compression'
 import { authRouter } from './modules/auth/auth-router'
 import { fastRouter } from './modules/fasts/fast.router'
 import { usersRouter } from './modules/users/user-router'
-import { foodEntriesRouter } from './modules/food/food-entry.router'
+import { foodEntriesRouter } from './modules/food/router/food-entry.router'
 import { coachRouter } from './modules/coach/coach.router'
+import { foodItemsRouter } from './modules/food/router/food-item.router'
 
 export const createApp = () => {
   const app = express()
@@ -42,6 +43,7 @@ export const createApp = () => {
   app.use('/users', usersRouter)
   app.use('/fasts', fastRouter)
   app.use('/food-entries', foodEntriesRouter)
+  app.use('/foods', foodItemsRouter)
   app.use('/health', healthRouter)
   app.use('/coach', coachRouter)
 

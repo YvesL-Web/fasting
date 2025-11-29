@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 import { appDataSource } from '../../infra/db'
 import { FastEntity } from '../fasts/fast.entity'
-import { FoodEntryEntity } from '../food/food-entry.entity'
+import { FoodEntryEntity } from '../food/entities/food-entry.entity'
 import { UserEntity } from '../users/user.entity'
 import { CoachService } from './coach.service'
 import { fastFeedbackSchema } from './coach.schemas'
@@ -27,11 +27,8 @@ coachRouter.post('/fast-feedback', async (req: AuthRequest, res, next) => {
     if (!req.userId) {
       throw new AppError(ERR.UNAUTHORIZED)
     }
-
     const input = fastFeedbackSchema.parse(req.body)
-
     const feedback = await coachService.getFastFeedback(req.userId, input)
-
     res.status(200).json({ feedback })
   } catch (err) {
     if (err instanceof z.ZodError) {

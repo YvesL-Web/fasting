@@ -3,6 +3,7 @@ import { ensureRedis, redis } from '../../config/ioredis'
 import { env } from '../../config/env'
 
 const SESSION_TTL_SECONDS = env.SESSION_TTL_SECONDS ?? 60 * 60 * 24 * 7 // 7 jours par défaut
+const SESSION_ROTATION_MS = 48 * 60 * 60 * 1000
 
 type SessionData = {
   userId: string
@@ -121,4 +122,54 @@ export async function listUserSessions(userId: string): Promise<SessionInfo[]> {
     }
   })
   return sessions
+}
+
+/**
+ * 🔁 Rotation de session si elle est trop vieille.
+ *
+ * - Si la session a moins de 48h → on renvoie la même.
+ * - Si elle a plus de 48h → on crée un nouveau sessionId, copie les données,
+ *   met à jour ip/userAgent si fournis, supprime l’ancienne et met à jour le set user-sessions.
+ */
+export async function rotateSessionIfNeeded(
+  sessionId: string,
+  session: SessionData,
+  meta?: { ip?: string | null; userAgent?: string | null }
+): Promise<{ sessionId: string; session: SessionData; rotated: boolean }> {
+  const createdAt = new Date(session.createdAt)
+  const ageMs = Date.now() - createdAt.getTime()
+
+  // si la date est invalide ou age < 48h → pas de rotation
+  if (!Number.isFinite(ageMs) || ageMs < SESSION_ROTATION_MS) {
+    return { sessionId, session, rotated: false }
+  }
+
+  await ensureRedis()
+
+  const newSessionId = crypto.randomBytes(32).toString('hex')
+  const newSession: SessionData = {
+    ...session,
+    createdAt: new Date().toISOString(),
+    ip: meta?.ip ?? session.ip ?? null,
+    userAgent: meta?.userAgent ?? session.userAgent ?? null
+  }
+
+  const oldKey = sessionKey(sessionId)
+  const newKey = sessionKey(newSessionId)
+  const userKey = userSessionsKey(session.userId)
+
+  const multi = redis.multi()
+  // nouvelle session avec TTL complet
+  multi.set(newKey, JSON.stringify(newSession), 'EX', SESSION_TTL_SECONDS)
+  // ajouter le nouveau dans l'ensemble de l'utilisateur
+  multi.sadd(userKey, newSessionId)
+  // retirer l'ancien
+  multi.srem(userKey, sessionId)
+  // supprimer la clé de l'ancienne session
+  multi.del(oldKey)
+  // rafraîchir le TTL du set (pas obligatoire mais cohérent)
+  multi.expire(userKey, SESSION_TTL_SECONDS)
+  await multi.exec()
+
+  return { sessionId: newSessionId, session: newSession, rotated: true }
 }

@@ -1,19 +1,19 @@
 import { Router } from 'express'
 import { z } from 'zod'
 
-import { appDataSource } from '../../infra/db'
-import { FoodEntryEntity } from './food-entry.entity'
-import { FastEntity } from '../fasts/fast.entity'
-import { UserEntity } from '../users/user.entity'
-import { FoodEntryService } from './food-entry.service'
+import { appDataSource } from '../../../infra/db'
+import { FoodEntryEntity } from '../entities/food-entry.entity'
+import { FastEntity } from '../../fasts/fast.entity'
+import { UserEntity } from '../../users/user.entity'
+import { FoodEntryService } from '../services/food-entry.service'
 import {
   createFoodEntrySchema,
   foodSummaryQuerySchema,
   listFoodEntriesQuerySchema
-} from './food-entry.schemas'
-import type { AuthRequest } from '../../middlewares/auth'
-import { authMiddleware } from '../../middlewares/auth'
-import { AppError, ERR } from '../../utils/error'
+} from '../schemas/food-entry.schemas'
+import type { AuthRequest } from '../../../middlewares/auth'
+import { authMiddleware } from '../../../middlewares/auth'
+import { AppError, ERR } from '../../../utils/error'
 
 const foodRepo = appDataSource.getRepository(FoodEntryEntity)
 const fastsRepo = appDataSource.getRepository(FastEntity)

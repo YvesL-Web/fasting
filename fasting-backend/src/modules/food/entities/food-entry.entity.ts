@@ -6,8 +6,8 @@ import {
   CreateDateColumn,
   UpdateDateColumn
 } from 'typeorm'
-import { UserEntity } from '../users/user.entity'
-import { FastEntity } from '../fasts/fast.entity'
+import { UserEntity } from '../../users/user.entity'
+import { FastEntity } from '../../fasts/fast.entity'
 
 @Entity({ name: 'food_entries' })
 export class FoodEntryEntity {

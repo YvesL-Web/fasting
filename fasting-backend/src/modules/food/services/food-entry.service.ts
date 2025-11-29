@@ -1,18 +1,17 @@
-import { Repository, Between } from 'typeorm'
-import { startOfDay, endOfDay, formatDate, eachDayOfInterval, subDays } from 'date-fns'
+import { Repository, Between, MoreThanOrEqual } from 'typeorm'
+import { startOfDay, endOfDay, format, eachDayOfInterval, subDays } from 'date-fns'
 
-import { FoodEntryEntity } from './food-entry.entity'
-import { FastEntity } from '../fasts/fast.entity'
-import { UserEntity } from '../users/user.entity'
+import { FoodEntryEntity } from '../entities/food-entry.entity'
+import { FastEntity } from '../../fasts/fast.entity'
+import { UserEntity } from '../../users/user.entity'
 import type {
   CreateFoodEntryInput,
   FoodDaySummary,
   FoodSummaryQuery,
-  ListFoodEntriesQuery,
-  foodSummaryQuerySchema
-} from './food-entry.schemas'
-import { fastingPresets } from '../fasts/fast.schemas'
-import { AppError, ERR } from '../../utils/error'
+  ListFoodEntriesQuery
+} from '../schemas/food-entry.schemas'
+import { fastingPresets } from '../../fasts/fast.schemas'
+import { AppError, ERR } from '../../../utils/error'
 
 export class FoodEntryService {
   constructor(
@@ -53,7 +52,8 @@ export class FoodEntryService {
 
     const fasts = await this.fastsRepo.find({
       where: {
-        user: { id: userId }
+        user: { id: userId },
+        startAt: MoreThanOrEqual(since)
       },
       order: { startAt: 'DESC' }
     })
@@ -142,7 +142,7 @@ export class FoodEntryService {
     const map = new Map<string, FoodDaySummary>()
 
     for (const entry of entries) {
-      const dayKey = formatDate(entry.loggedAt, 'yyyy-MM-dd')
+      const dayKey = format(entry.loggedAt, 'yyyy-MM-dd')
       const cals = entry.calories ?? 0
 
       let rec = map.get(dayKey)
@@ -168,7 +168,7 @@ export class FoodEntryService {
 
     const allDays = eachDayOfInterval({ start: from, end: to })
     const days: FoodDaySummary[] = allDays.map((d) => {
-      const key = formatDate(d, 'yyyy-MM-dd')
+      const key = format(d, 'yyyy-MM-dd')
       return (
         map.get(key) ?? {
           day: key,
@@ -181,8 +181,8 @@ export class FoodEntryService {
     })
 
     return {
-      from: formatDate(from, 'yyyy-MM-dd'),
-      to: formatDate(to, 'yyyy-MM-dd'),
+      from: format(from, 'yyyy-MM-dd'),
+      to: format(to, 'yyyy-MM-dd'),
       days
     }
   }
