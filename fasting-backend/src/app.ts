@@ -15,6 +15,7 @@ import { usersRouter } from './modules/users/user-router'
 import { foodEntriesRouter } from './modules/food/router/food-entry.router'
 import { coachRouter } from './modules/coach/coach.router'
 import { foodItemsRouter } from './modules/food/router/food-item.router'
+import { foodScanRouter } from './modules/nutrition-ai/food-scan.router'
 
 export const createApp = () => {
   const app = express()
@@ -46,6 +47,7 @@ export const createApp = () => {
   app.use('/foods', foodItemsRouter)
   app.use('/health', healthRouter)
   app.use('/coach', coachRouter)
+  app.use('/ai', foodScanRouter)
 
   // 404
   app.use(notFoundHandler)

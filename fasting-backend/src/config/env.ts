@@ -67,7 +67,8 @@ const envSchema = z.object({
   FRONTEND_BASE_URL: z.string().default('http://localhost:3000'),
 
   // OpenAI
-  OPENAI_API_KEY: z.string().min(10)
+  OPENAI_API_KEY: z.string().min(10),
+  OPENAI_VISION_MODEL: z.string().min(10)
 })
 
 const raw = envSchema.parse(process.env)

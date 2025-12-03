@@ -31,6 +31,24 @@ const toFoodItemResponse = (item: FoodItemEntity) => ({
   updatedAt: item.updatedAt
 })
 
+// GET /foods (aliments utilisateur)
+foodItemsRouter.get('/', async (req: AuthRequest, res, next) => {
+  try {
+    if (!req.userId) throw new AppError(ERR.UNAUTHORIZED)
+
+    const items = await foodItemsRepo.find({
+      where: { owner: { id: req.userId } },
+      order: { label: 'ASC' }
+    })
+
+    res.status(200).json({
+      items: items.map(toFoodItemResponse)
+    })
+  } catch (err) {
+    return next(err)
+  }
+})
+
 // POST /foods  (création d'un aliment personnalisé)
 foodItemsRouter.post('/', async (req: AuthRequest, res, next) => {
   try {
@@ -44,6 +62,36 @@ foodItemsRouter.post('/', async (req: AuthRequest, res, next) => {
     if (err instanceof z.ZodError) {
       return next(AppError.fromZod(err))
     }
+    return next(err)
+  }
+})
+
+// DELETE /foods/:id (supprimer un aliment perso)
+foodItemsRouter.delete('/:id', async (req: AuthRequest, res, next) => {
+  try {
+    if (!req.userId) throw new AppError(ERR.UNAUTHORIZED)
+
+    const id = req.params.id
+
+    const item = await foodItemsRepo.findOne({
+      where: {
+        id,
+        owner: { id: req.userId },
+        source: 'USER' // sécurité : on ne supprime pas les aliments globaux
+      }
+    })
+
+    if (!item) {
+      throw new AppError(
+        { ...ERR.NOT_FOUND, message: 'Food item not found.' },
+        { reason: 'FOOD_ITEM_NOT_FOUND', id }
+      )
+    }
+
+    await foodItemsRepo.remove(item)
+
+    return res.status(204).send()
+  } catch (err) {
     return next(err)
   }
 })
