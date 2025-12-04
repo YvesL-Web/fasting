@@ -16,6 +16,7 @@ import { foodEntriesRouter } from './modules/food/router/food-entry.router'
 import { coachRouter } from './modules/coach/coach.router'
 import { foodItemsRouter } from './modules/food/router/food-item.router'
 import { foodScanRouter } from './modules/nutrition-ai/food-scan.router'
+import { recipesRouter } from './modules/recipes/recipe.router'
 
 export const createApp = () => {
   const app = express()
@@ -46,6 +47,7 @@ export const createApp = () => {
   app.use('/food-entries', foodEntriesRouter)
   app.use('/foods', foodItemsRouter)
   app.use('/health', healthRouter)
+  app.use('/recipes', recipesRouter)
   app.use('/coach', coachRouter)
   app.use('/ai', foodScanRouter)
 
