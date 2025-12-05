@@ -8,6 +8,7 @@ import {
 } from 'typeorm'
 import { UserEntity } from '../../users/user.entity'
 import { FastEntity } from '../../fasts/fast.entity'
+import { RecipeEntity } from '../../recipes/recipe.entity'
 
 @Entity({ name: 'food_entries' })
 export class FoodEntryEntity {
@@ -19,6 +20,9 @@ export class FoodEntryEntity {
 
   @ManyToOne(() => FastEntity, { onDelete: 'SET NULL', nullable: true })
   fast!: FastEntity | null
+
+  @ManyToOne(() => RecipeEntity, { onDelete: 'SET NULL', nullable: true })
+  recipe!: RecipeEntity | null
 
   @Column({ type: 'timestamp' })
   loggedAt!: Date
@@ -40,6 +44,9 @@ export class FoodEntryEntity {
 
   @Column({ type: 'boolean', default: false })
   inEatingWindow!: boolean
+
+  @Column({ type: 'boolean', default: false })
+  isPostFast!: boolean
 
   @CreateDateColumn()
   createdAt!: Date

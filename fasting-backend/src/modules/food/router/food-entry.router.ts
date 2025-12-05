@@ -14,12 +14,14 @@ import {
 import type { AuthRequest } from '../../../middlewares/auth'
 import { authMiddleware } from '../../../middlewares/auth'
 import { AppError, ERR } from '../../../utils/error'
+import { RecipeEntity } from '../../recipes/recipe.entity'
 
 const foodRepo = appDataSource.getRepository(FoodEntryEntity)
 const fastsRepo = appDataSource.getRepository(FastEntity)
 const usersRepo = appDataSource.getRepository(UserEntity)
+const recipesRepo = appDataSource.getRepository(RecipeEntity)
 
-const foodService = new FoodEntryService(foodRepo, fastsRepo, usersRepo)
+const foodService = new FoodEntryService(foodRepo, fastsRepo, usersRepo, recipesRepo)
 
 export const foodEntriesRouter = Router()
 
@@ -34,7 +36,15 @@ const toFoodEntryResponse = (entry: FoodEntryEntity) => ({
   fatGrams: entry.fatGrams,
   loggedAt: entry.loggedAt,
   inEatingWindow: entry.inEatingWindow,
+  isPostFast: entry.isPostFast,
   fastId: entry.fast ? entry.fast.id : null,
+  recipe: entry.recipe
+    ? {
+        id: entry.recipe.id,
+        title: entry.recipe.title,
+        imageUrl: entry.recipe.imageUrl ?? null
+      }
+    : null,
   createdAt: entry.createdAt,
   updatedAt: entry.updatedAt
 })

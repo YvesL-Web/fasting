@@ -1,5 +1,5 @@
 import { Repository, Between, MoreThanOrEqual } from 'typeorm'
-import { startOfDay, endOfDay, format, eachDayOfInterval, subDays } from 'date-fns'
+import { startOfDay, endOfDay, format, eachDayOfInterval, subDays, formatDate } from 'date-fns'
 
 import { FoodEntryEntity } from '../entities/food-entry.entity'
 import { FastEntity } from '../../fasts/fast.entity'
@@ -8,16 +8,19 @@ import type {
   CreateFoodEntryInput,
   FoodDaySummary,
   FoodSummaryQuery,
+  FoodTopRecipeSummary,
   ListFoodEntriesQuery
 } from '../schemas/food-entry.schemas'
 import { fastingPresets } from '../../fasts/fast.schemas'
 import { AppError, ERR } from '../../../utils/error'
+import { RecipeEntity } from '../../recipes/recipe.entity'
 
 export class FoodEntryService {
   constructor(
     private readonly foodRepo: Repository<FoodEntryEntity>,
     private readonly fastsRepo: Repository<FastEntity>,
-    private readonly usersRepo: Repository<UserEntity>
+    private readonly usersRepo: Repository<UserEntity>,
+    private readonly recipesRepo: Repository<RecipeEntity>
   ) {}
 
   private computeEatingWindowForFast(fast: FastEntity) {
@@ -46,41 +49,71 @@ export class FoodEntryService {
 
     const loggedAt = input.loggedAt ?? new Date()
 
-    // On prend les fasts récents (par ex. sur les 7 derniers jours) pour limiter le volume
+    // Recette liée (optionnelle)
+    let linkedRecipe: RecipeEntity | null = null
+    if (input.recipeId) {
+      const recipe = await this.recipesRepo.findOne({
+        where: { id: input.recipeId },
+        relations: ['author']
+      })
+      if (!recipe) {
+        throw new AppError(
+          { ...ERR.NOT_FOUND, message: 'Recipe not found.' },
+          { reason: 'RECIPE_NOT_FOUND', recipeId: input.recipeId }
+        )
+      }
+
+      const isOwner = recipe.author.id === userId
+      if (!recipe.isPublic && !isOwner) {
+        throw new AppError(
+          { ...ERR.FORBIDDEN, message: 'You are not allowed to use this recipe.' },
+          { reason: 'RECIPE_PRIVATE' }
+        )
+      }
+
+      linkedRecipe = recipe
+    }
+
+    // Fasts récents
     const since = new Date()
     since.setDate(since.getDate() - 7)
 
     const fasts = await this.fastsRepo.find({
-      where: {
-        user: { id: userId },
-        startAt: MoreThanOrEqual(since)
-      },
+      where: { user: { id: userId } },
       order: { startAt: 'DESC' }
     })
 
     let linkedFast: FastEntity | null = null
     let inEatingWindow = false
+    let isPostFast = false
+
+    const loggedMs = loggedAt.getTime()
 
     for (const fast of fasts) {
-      // on ignore les fasts trop anciens
       if (fast.startAt < since) break
 
       const window = this.computeEatingWindowForFast(fast)
       if (!window) continue
 
-      const { eatingWindowStartAt, eatingWindowEndAt } = window
-      const fastStart = fast.startAt
+      const { fastTargetEndAt, eatingWindowStartAt, eatingWindowEndAt } = window
 
-      const loggedMs = loggedAt.getTime()
-      const startMs = fastStart.getTime()
+      const startMs = fast.startAt.getTime()
+      const fastEndMs = fastTargetEndAt.getTime()
       const eatStartMs = eatingWindowStartAt.getTime()
       const eatEndMs = eatingWindowEndAt.getTime()
 
-      // On considère que ce fast est lié si loggedAt ∈ [startAt, eatingWindowEndAt]
+      // on associe si [startAt, eatingWindowEndAt]
       if (loggedMs >= startMs && loggedMs <= eatEndMs) {
         linkedFast = fast
-        // inEatingWindow = true si entre eatingStart et eatingEnd
+
         inEatingWindow = loggedMs >= eatStartMs && loggedMs <= eatEndMs
+
+        // "post-fast" : première portion de la fenêtre d'alimentation, ou plus simple :
+        // tout ce qui est dans la fenêtre d'alim ET après la fin théorique du jeûne
+        if (loggedMs >= fastEndMs && loggedMs <= eatEndMs) {
+          isPostFast = true
+        }
+
         break
       }
     }
@@ -88,13 +121,15 @@ export class FoodEntryService {
     const entry = this.foodRepo.create({
       user,
       fast: linkedFast,
+      recipe: linkedRecipe,
       loggedAt,
       label: input.label,
       calories: input.calories ?? null,
       proteinGrams: input.proteinGrams ?? null,
       carbsGrams: input.carbsGrams ?? null,
       fatGrams: input.fatGrams ?? null,
-      inEatingWindow
+      inEatingWindow,
+      isPostFast
     })
 
     return this.foodRepo.save(entry)
@@ -109,20 +144,21 @@ export class FoodEntryService {
       where: {
         user: { id: userId },
         loggedAt: Between(from, to)
-        // loggedAt: {
-        //   $gte: from as any,
-        //   $lte: to as any
-        // } as any
       },
       order: { loggedAt: 'ASC' },
-      relations: ['fast']
+      relations: ['fast', 'recipe']
     })
   }
 
   async getSummary(
     userId: string,
     query: FoodSummaryQuery
-  ): Promise<{ from: string; to: string; days: FoodDaySummary[] }> {
+  ): Promise<{
+    from: string
+    to: string
+    days: FoodDaySummary[]
+    topRecipes: FoodTopRecipeSummary[]
+  }> {
     const today = new Date()
 
     const fromDate = query.from ? new Date(query.from + 'T00:00:00') : subDays(today, 6)
@@ -136,25 +172,28 @@ export class FoodEntryService {
         user: { id: userId },
         loggedAt: Between(from, to)
       },
-      order: { loggedAt: 'ASC' }
+      order: { loggedAt: 'ASC' },
+      relations: ['recipe'] // 👈 pour pouvoir calculer top recettes
     })
 
-    const map = new Map<string, FoodDaySummary>()
+    const dayMap = new Map<string, FoodDaySummary>()
+    const recipeMap = new Map<string, FoodTopRecipeSummary>()
 
     for (const entry of entries) {
-      const dayKey = format(entry.loggedAt, 'yyyy-MM-dd')
+      const dayKey = formatDate(entry.loggedAt, 'yyyy-MM-dd')
       const cals = entry.calories ?? 0
 
-      let rec = map.get(dayKey)
+      let rec = dayMap.get(dayKey)
       if (!rec) {
         rec = {
           day: dayKey,
           totalCalories: 0,
           inWindowCalories: 0,
           outWindowCalories: 0,
-          entriesCount: 0
+          entriesCount: 0,
+          postFastCalories: 0
         }
-        map.set(dayKey, rec)
+        dayMap.set(dayKey, rec)
       }
 
       rec.totalCalories += cals
@@ -163,27 +202,58 @@ export class FoodEntryService {
       } else {
         rec.outWindowCalories += cals
       }
+      if (entry.isPostFast) {
+        rec.postFastCalories += cals
+      }
       rec.entriesCount += 1
+
+      // Top recettes
+      if (entry.recipe) {
+        const id = entry.recipe.id
+        let r = recipeMap.get(id)
+        if (!r) {
+          r = {
+            recipeId: id,
+            title: entry.recipe.title,
+            imageUrl: entry.recipe.imageUrl ?? null,
+            uses: 0,
+            totalCalories: 0
+          }
+          recipeMap.set(id, r)
+        }
+        r.uses += 1
+        r.totalCalories += cals
+      }
     }
 
     const allDays = eachDayOfInterval({ start: from, end: to })
     const days: FoodDaySummary[] = allDays.map((d) => {
-      const key = format(d, 'yyyy-MM-dd')
+      const key = formatDate(d, 'yyyy-MM-dd')
       return (
-        map.get(key) ?? {
+        dayMap.get(key) ?? {
           day: key,
           totalCalories: 0,
           inWindowCalories: 0,
           outWindowCalories: 0,
-          entriesCount: 0
+          entriesCount: 0,
+          postFastCalories: 0
         }
       )
     })
 
+    // On trie les recettes par nombre d'utilisations puis par calories
+    const topRecipes = Array.from(recipeMap.values())
+      .sort((a, b) => {
+        if (b.uses !== a.uses) return b.uses - a.uses
+        return b.totalCalories - a.totalCalories
+      })
+      .slice(0, 5) // Top 5 sur la période
+
     return {
-      from: format(from, 'yyyy-MM-dd'),
-      to: format(to, 'yyyy-MM-dd'),
-      days
+      from: formatDate(from, 'yyyy-MM-dd'),
+      to: formatDate(to, 'yyyy-MM-dd'),
+      days,
+      topRecipes
     }
   }
 }

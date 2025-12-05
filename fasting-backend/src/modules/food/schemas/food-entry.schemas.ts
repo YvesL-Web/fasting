@@ -6,7 +6,8 @@ export const createFoodEntrySchema = z.object({
   proteinGrams: z.number().nonnegative().max(500).optional(),
   carbsGrams: z.number().nonnegative().max(500).optional(),
   fatGrams: z.number().nonnegative().max(500).optional(),
-  loggedAt: z.coerce.date().optional()
+  loggedAt: z.coerce.date().optional(),
+  recipeId: z.uuid().optional()
 })
 
 export const listFoodEntriesQuerySchema = z.object({
@@ -22,6 +23,7 @@ export type FoodDaySummary = {
   inWindowCalories: number
   outWindowCalories: number
   entriesCount: number
+  postFastCalories: number
 }
 
 export const foodSummaryQuerySchema = z.object({
@@ -34,6 +36,21 @@ export const foodSummaryQuerySchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format, expected YYYY-MM-DD')
     .optional()
 })
+
+export type FoodTopRecipeSummary = {
+  recipeId: string
+  title: string
+  imageUrl: string | null
+  uses: number
+  totalCalories: number
+}
+
+export type FoodSummaryResponse = {
+  from: string
+  to: string
+  days: FoodDaySummary[]
+  topRecipes: FoodTopRecipeSummary[]
+}
 
 export type CreateFoodEntryInput = z.infer<typeof createFoodEntrySchema>
 export type ListFoodEntriesQuery = z.infer<typeof listFoodEntriesQuerySchema>
