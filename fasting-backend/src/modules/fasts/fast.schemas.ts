@@ -1,6 +1,8 @@
 import { z } from 'zod'
 
 export const fastingPresets = [
+  { id: '12_12', label: '12:12', fastingHours: 12, eatingHours: 12 },
+  { id: '14_10', label: '14:10', fastingHours: 14, eatingHours: 10 },
   { id: '16_8', label: '16:8', fastingHours: 16, eatingHours: 8 },
   { id: '18_6', label: '18:6', fastingHours: 18, eatingHours: 6 },
   { id: '20_4', label: '20:4', fastingHours: 20, eatingHours: 4 },

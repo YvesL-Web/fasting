@@ -23,6 +23,13 @@ export class FastService {
     })
   }
 
+  async getLastFast(userId: string): Promise<FastEntity | null> {
+    return this.fastsRepo.findOne({
+      where: { user: { id: userId } },
+      order: { startAt: 'DESC' }
+    })
+  }
+
   async startFast(userId: string, input: StartFastInput): Promise<FastEntity> {
     const user = await this.usersRepo.findOne({ where: { id: userId } })
     if (!user) {

@@ -6,8 +6,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn
 } from 'typeorm'
-
-import { USER_ROLES, SUBSCRIPTION_PLANS } from '@fasting/shared'
+import { SUBSCRIPTION_PLANS, USER_ROLES } from './user-schema'
 
 @Entity({ name: 'users' })
 export class UserEntity {

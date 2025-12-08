@@ -13,6 +13,7 @@ import { UserEntity } from '../users/user.entity'
 import { FoodScanService } from './food-scan.service'
 import { FoodItemEntity } from '../food/entities/food-item.entity'
 import { FoodItemService } from '../food/services/food-item.service'
+import { requireSubscriptionPlan } from '../../middlewares/subscription'
 
 // stockage temporaire sur disque (tu peux affiner plus tard)
 const upload = multer({
@@ -40,7 +41,7 @@ const foodScanService = new FoodScanService(foodItemService)
 
 export const foodScanRouter = Router()
 
-foodScanRouter.use(authMiddleware)
+foodScanRouter.use(authMiddleware, requireSubscriptionPlan('PREMIUM_MONTHLY'))
 
 // POST /ai/scan-food
 foodScanRouter.post('/scan-food', upload.single('image'), async (req: AuthRequest, res, next) => {
