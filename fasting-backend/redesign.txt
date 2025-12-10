@@ -1,0 +1,108 @@
+PHASE 1 – Shell global (structure app)
+🟦 1. Layout principal (protected)/layout.tsx
+
+Sidebar verticale
+
+Topbar avec :
+
+Theme switcher 🌗
+
+Menu utilisateur (avatar + dropdown)
+
+Breadcrumb dynamique
+
+Responsive mobile → sidebar collapsable
+
+Exemple visuel :
+
+┌───────────────────────────────────────────────┐
+│  LOGO      | Dashboard | Fasts | Food | AI…   │  topbar
+└────────────┬──────────────────────────────────┘
+│ SIDEBAR    │   Page Content…                  │
+│            │                                   │
+│            │                                   │
+└────────────┴───────────────────────────────────┘
+
+PHASE 2 – Pages structurées
+🟧 2. Dashboard revamp
+
+Tabs : Jeûne | Alimentation | Statistiques | IA Coach
+
+Cartes plus homogènes
+
+Section latérale "Raccourcis"
+
+🟧 3. Profil / Settings amélioré
+
+Tabs dans un layout stylé :
+
+👤 Informations générales
+
+🔒 Sécurité et sessions
+
+🧾 Abonnement & facturation
+
+🎨 Apparence (thème, accents)
+
+📸 Avatar
+
+🟧 4. Recettes (explorer + detail)
+
+Une vraie “mini application” interne :
+
+Page list
+
+Filtres
+
+Tags
+
+Thumbnails uniformes
+
+Page détail style Notion / Cookpad
+
+PHASE 3 – Globaux
+🟨 5. Theme system complet
+
+dark
+
+light
+
+system
+
+Des accents colorés possibles (blue, emerald, amber, rose…)
+
+🟨 6. Components UI réutilisables
+
+Tu auras :
+
+<AppShell>
+
+<Sidebar>
+
+<Topbar>
+
+<UserMenu>
+
+<ThemeToggle>
+
+<Breadcrumbs>
+
+<PageHeader>
+
+Ce qui te permet d’itérer vite sur n’importe quelle nouvelle page Premium.
+
+PHASE 4 – Landing page + Pricing
+
+Une réelle Landing Page marketing :
+
+Hero section
+
+Explainer des modules (Fasting, Food Journal, Recettes, AI…)
+
+CTA → Sign up
+
+Pricing table stylée
+
+FAQ
+
+Footer avec branding

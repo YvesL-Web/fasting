@@ -68,7 +68,8 @@ const envSchema = z.object({
 
   // OpenAI
   OPENAI_API_KEY: z.string().min(10),
-  OPENAI_VISION_MODEL: z.string().min(10)
+  OPENAI_VISION_MODEL: z.string().min(10),
+  OPENAI_MEAL_PLAN_MODEL: z.string().min(10)
 })
 
 const raw = envSchema.parse(process.env)
