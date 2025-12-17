@@ -44,57 +44,8 @@ export class FoodEntryService {
     return { fastTargetEndAt, eatingWindowStartAt, eatingWindowEndAt }
   }
 
-  async createEntry(userId: string, input: CreateFoodEntryInput): Promise<FoodEntryEntity> {
-    const user = await this.usersRepo.findOne({ where: { id: userId } })
-    if (!user) throw new AppError(ERR.NOT_FOUND, 'User not found')
-
-    const loggedAt = input.loggedAt ?? new Date()
-
-    // ✅ charger recipe/foodItem si besoin
-    let recipe: RecipeEntity | null = null
-    if (input.recipeId) {
-      recipe = await this.recipesRepo.findOne({
-        where: { id: input.recipeId },
-        relations: ['author']
-      })
-      if (!recipe) {
-        throw new AppError(
-          { ...ERR.NOT_FOUND, message: 'Recipe not found.' },
-          { reason: 'RECIPE_NOT_FOUND' }
-        )
-      }
-      // si recette privée, seul l’auteur peut l’utiliser
-      if (!recipe.isPublic && recipe.author?.id !== userId) {
-        throw new AppError(
-          { ...ERR.FORBIDDEN, message: 'You cannot use this recipe.' },
-          { reason: 'RECIPE_PRIVATE' }
-        )
-      }
-    }
-
-    let foodItem: FoodItemEntity | null = null
-    if (input.foodItemId) {
-      foodItem = await this.foodItemsRepo.findOne({
-        where: { id: input.foodItemId },
-        relations: ['owner']
-      })
-      if (!foodItem) {
-        throw new AppError(
-          { ...ERR.NOT_FOUND, message: 'Food item not found.' },
-          { reason: 'FOOD_ITEM_NOT_FOUND' }
-        )
-      }
-      // global ok, user ok
-      const isOwnerOk = foodItem.source === 'GLOBAL' || foodItem.owner?.id === userId
-      if (!isOwnerOk) {
-        throw new AppError(
-          { ...ERR.FORBIDDEN, message: 'You cannot use this food item.' },
-          { reason: 'FOOD_ITEM_FORBIDDEN' }
-        )
-      }
-    }
-
-    // ---- Associer au fast + window
+  private async resolveFastForLoggedAt(userId: string, loggedAt: Date) {
+    // perf: limiter aux fasts récents (7j)
     const since = new Date()
     since.setDate(since.getDate() - 7)
 
@@ -108,15 +59,14 @@ export class FoodEntryService {
 
     for (const fast of fasts) {
       if (fast.startAt < since) break
+
       const window = this.computeEatingWindowForFast(fast)
       if (!window) continue
 
-      const { eatingWindowStartAt, eatingWindowEndAt } = window
-
       const loggedMs = loggedAt.getTime()
       const startMs = fast.startAt.getTime()
-      const eatStartMs = eatingWindowStartAt.getTime()
-      const eatEndMs = eatingWindowEndAt.getTime()
+      const eatStartMs = window.eatingWindowStartAt.getTime()
+      const eatEndMs = window.eatingWindowEndAt.getTime()
 
       if (loggedMs >= startMs && loggedMs <= eatEndMs) {
         linkedFast = fast
@@ -125,27 +75,96 @@ export class FoodEntryService {
       }
     }
 
-    // ✅ fallback label/macros si tu passes recipeId/foodItemId
-    const label = input.label?.trim() || recipe?.title || foodItem?.label || 'Meal'
-    const calories = input.calories ?? recipe?.totalCalories ?? foodItem?.calories ?? null
-    const proteinGrams =
-      input.proteinGrams ?? recipe?.proteinGrams ?? foodItem?.proteinGrams ?? null
-    const carbsGrams = input.carbsGrams ?? recipe?.carbsGrams ?? foodItem?.carbsGrams ?? null
-    const fatGrams = input.fatGrams ?? recipe?.fatGrams ?? foodItem?.fatGrams ?? null
+    return { linkedFast, inEatingWindow }
+  }
+
+  private async getUserOrThrow(userId: string) {
+    const user = await this.usersRepo.findOne({ where: { id: userId } })
+    if (!user) throw new AppError(ERR.NOT_FOUND, 'User not found')
+    return user
+  }
+
+  private async resolveRecipeForUser(userId: string, recipeId: string): Promise<RecipeEntity> {
+    const recipe = await this.recipesRepo.findOne({
+      where: { id: recipeId },
+      relations: ['author']
+    })
+    if (!recipe) {
+      throw new AppError(
+        { ...ERR.NOT_FOUND, message: 'Recipe not found.' },
+        { reason: 'RECIPE_NOT_FOUND', recipeId }
+      )
+    }
+    const canView = recipe.isPublic || recipe.author?.id === userId
+    if (!canView) {
+      throw new AppError(
+        { ...ERR.FORBIDDEN, message: 'You cannot use this recipe.' },
+        { reason: 'RECIPE_PRIVATE', recipeId }
+      )
+    }
+    return recipe
+  }
+
+  private async resolveFoodItemForUser(
+    userId: string,
+    foodItemId: string
+  ): Promise<FoodItemEntity> {
+    const item = await this.foodItemsRepo.findOne({
+      where: { id: foodItemId },
+      relations: ['owner']
+    })
+    if (!item) {
+      throw new AppError(
+        { ...ERR.NOT_FOUND, message: 'Food item not found.' },
+        { reason: 'FOOD_ITEM_NOT_FOUND', foodItemId }
+      )
+    }
+
+    // règle: GLOBAL ok, USER seulement si owner = userId
+    const ok = item.source === 'GLOBAL' || item.owner?.id === userId
+    if (!ok) {
+      throw new AppError(
+        { ...ERR.FORBIDDEN, message: 'You cannot use this food item.' },
+        { reason: 'FOOD_ITEM_FORBIDDEN', foodItemId }
+      )
+    }
+    return item
+  }
+
+  async createEntry(userId: string, input: CreateFoodEntryInput): Promise<FoodEntryEntity> {
+    const user = await this.getUserOrThrow(userId)
+
+    if (input.recipeId && input.foodItemId) {
+      throw new AppError(
+        { ...ERR.BAD_REQUEST, message: 'Provide either recipeId or foodItemId, not both.' },
+        { reason: 'AMBIGUOUS_SOURCE' }
+      )
+    }
+
+    const loggedAt = input.loggedAt ?? new Date()
+    const { linkedFast, inEatingWindow } = await this.resolveFastForLoggedAt(userId, loggedAt)
+
+    const recipe = input.recipeId ? await this.resolveRecipeForUser(userId, input.recipeId) : null
+    const foodItem = input.foodItemId
+      ? await this.resolveFoodItemForUser(userId, input.foodItemId)
+      : null
 
     const entry = this.foodRepo.create({
       user,
       fast: linkedFast,
-      recipe,
-      foodItem,
       loggedAt,
-      label,
-      calories,
-      proteinGrams,
-      carbsGrams,
-      fatGrams,
+      label: input.label,
+
+      calories: input.calories ?? null,
+      proteinGrams: input.proteinGrams ?? null,
+      carbsGrams: input.carbsGrams ?? null,
+      fatGrams: input.fatGrams ?? null,
+
       inEatingWindow,
-      isPostFast: input.isPostFast ?? false
+      isPostFast: input.isPostFast ?? false,
+
+      recipe,
+      foodItem
     })
 
     return this.foodRepo.save(entry)
@@ -386,7 +405,11 @@ export class FoodEntryService {
     }
   }
 
-  async updateEntry(userId: string, entryId: string, input: UpdateFoodEntryInput) {
+  async updateEntry(
+    userId: string,
+    entryId: string,
+    input: UpdateFoodEntryInput
+  ): Promise<FoodEntryEntity> {
     const entry = await this.foodRepo.findOne({
       where: { id: entryId },
       relations: ['user', 'recipe', 'foodItem', 'fast']
@@ -398,7 +421,6 @@ export class FoodEntryService {
         { reason: 'ENTRY_NOT_FOUND', entryId }
       )
     }
-
     if (entry.user.id !== userId) {
       throw new AppError(
         { ...ERR.FORBIDDEN, message: 'Not allowed.' },
@@ -406,26 +428,46 @@ export class FoodEntryService {
       )
     }
 
+    // si l’API reçoit recipeId/foodItemId dans le même PATCH => interdit
+    if (input.recipeId !== undefined && input.foodItemId !== undefined) {
+      if (input.recipeId && input.foodItemId) {
+        throw new AppError(
+          { ...ERR.BAD_REQUEST, message: 'Provide either recipeId or foodItemId, not both.' },
+          { reason: 'AMBIGUOUS_SOURCE' }
+        )
+      }
+    }
+
+    // 1) champs simples
     if (input.label !== undefined) entry.label = input.label
+
     if (input.calories !== undefined) entry.calories = input.calories ?? null
     if (input.proteinGrams !== undefined) entry.proteinGrams = input.proteinGrams ?? null
     if (input.carbsGrams !== undefined) entry.carbsGrams = input.carbsGrams ?? null
     if (input.fatGrams !== undefined) entry.fatGrams = input.fatGrams ?? null
-    if (input.loggedAt !== undefined) entry.loggedAt = input.loggedAt
 
     if (input.isPostFast !== undefined) entry.isPostFast = input.isPostFast
 
-    // Optionnel : autoriser de relier à une recipe/foodItem après coup
-    // ⚠️ si tu fais ça, valide l’existence + ownership/public
-    // sinon tu peux enlever ces 2 blocs
+    // 2) changer loggedAt => recalc fast + inEatingWindow
+    if (input.loggedAt !== undefined) {
+      entry.loggedAt = input.loggedAt
+      const { linkedFast, inEatingWindow } = await this.resolveFastForLoggedAt(
+        userId,
+        input.loggedAt
+      )
+      entry.fast = linkedFast
+      entry.inEatingWindow = inEatingWindow
+    }
+
+    // 3) liens recipe / foodItem
     if (input.recipeId !== undefined) {
-      // si null => unlink
       if (input.recipeId === null) {
         entry.recipe = null
       } else {
-        // TODO: charger RecipeEntity et vérifier droits
-        // const recipe = await this.recipesRepo.findOne(...)
-        // entry.recipe = recipe
+        const recipe = await this.resolveRecipeForUser(userId, input.recipeId)
+        entry.recipe = recipe
+        // si on set une recipe, on peut décider de clear foodItem
+        entry.foodItem = null
       }
     }
 
@@ -433,8 +475,16 @@ export class FoodEntryService {
       if (input.foodItemId === null) {
         entry.foodItem = null
       } else {
-        // TODO: charger FoodItemEntity et vérifier droits
+        const item = await this.resolveFoodItemForUser(userId, input.foodItemId)
+        entry.foodItem = item
+        entry.recipe = null
       }
+    }
+
+    // 4) si recipeId et foodItemId non envoyés mais macros envoyées, ok
+    // 5) si l’entrée n’a plus de fast (car loggedAt changé), inEatingWindow reste false
+    if (!entry.fast) {
+      entry.inEatingWindow = false
     }
 
     return this.foodRepo.save(entry)

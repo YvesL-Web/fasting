@@ -58,10 +58,6 @@ export type FoodSummaryResponse = {
   topRecipes: FoodTopRecipeSummary[]
 }
 
-export type CreateFoodEntryInput = z.infer<typeof createFoodEntrySchema>
-export type ListFoodEntriesQuery = z.infer<typeof listFoodEntriesQuerySchema>
-export type FoodSummaryQuery = z.infer<typeof foodSummaryQuerySchema>
-
 export const updateFoodEntrySchema = z.object({
   label: z.string().min(1).max(255).optional(),
 
@@ -70,10 +66,8 @@ export const updateFoodEntrySchema = z.object({
   carbsGrams: z.number().nonnegative().max(500).nullable().optional(),
   fatGrams: z.number().nonnegative().max(500).nullable().optional(),
 
-  // optionnel : on peut permettre de changer loggedAt si tu veux
   loggedAt: z.coerce.date().optional(),
 
-  // liens optionnels (tu peux autoriser ou non le changement)
   recipeId: z.uuid().nullable().optional(),
   foodItemId: z.uuid().nullable().optional(),
 
@@ -81,3 +75,6 @@ export const updateFoodEntrySchema = z.object({
 })
 
 export type UpdateFoodEntryInput = z.infer<typeof updateFoodEntrySchema>
+export type CreateFoodEntryInput = z.infer<typeof createFoodEntrySchema>
+export type ListFoodEntriesQuery = z.infer<typeof listFoodEntriesQuerySchema>
+export type FoodSummaryQuery = z.infer<typeof foodSummaryQuerySchema>
