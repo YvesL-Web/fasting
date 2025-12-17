@@ -9,18 +9,21 @@ import type {
   FoodDaySummary,
   FoodSummaryQuery,
   FoodTopRecipeSummary,
-  ListFoodEntriesQuery
+  ListFoodEntriesQuery,
+  UpdateFoodEntryInput
 } from '../schemas/food-entry.schemas'
 import { fastingPresets } from '../../fasts/fast.schemas'
 import { AppError, ERR } from '../../../utils/error'
 import { RecipeEntity } from '../../recipes/recipe.entity'
+import { FoodItemEntity } from '../entities/food-item.entity'
 
 export class FoodEntryService {
   constructor(
     private readonly foodRepo: Repository<FoodEntryEntity>,
     private readonly fastsRepo: Repository<FastEntity>,
     private readonly usersRepo: Repository<UserEntity>,
-    private readonly recipesRepo: Repository<RecipeEntity>
+    private readonly recipesRepo: Repository<RecipeEntity>,
+    private readonly foodItemsRepo: Repository<FoodItemEntity>
   ) {}
 
   private computeEatingWindowForFast(fast: FastEntity) {
@@ -43,38 +46,55 @@ export class FoodEntryService {
 
   async createEntry(userId: string, input: CreateFoodEntryInput): Promise<FoodEntryEntity> {
     const user = await this.usersRepo.findOne({ where: { id: userId } })
-    if (!user) {
-      throw new AppError(ERR.NOT_FOUND, 'User not found')
-    }
+    if (!user) throw new AppError(ERR.NOT_FOUND, 'User not found')
 
     const loggedAt = input.loggedAt ?? new Date()
 
-    // Recette liée (optionnelle)
-    let linkedRecipe: RecipeEntity | null = null
+    // ✅ charger recipe/foodItem si besoin
+    let recipe: RecipeEntity | null = null
     if (input.recipeId) {
-      const recipe = await this.recipesRepo.findOne({
+      recipe = await this.recipesRepo.findOne({
         where: { id: input.recipeId },
         relations: ['author']
       })
       if (!recipe) {
         throw new AppError(
           { ...ERR.NOT_FOUND, message: 'Recipe not found.' },
-          { reason: 'RECIPE_NOT_FOUND', recipeId: input.recipeId }
+          { reason: 'RECIPE_NOT_FOUND' }
         )
       }
-
-      const isOwner = recipe.author.id === userId
-      if (!recipe.isPublic && !isOwner) {
+      // si recette privée, seul l’auteur peut l’utiliser
+      if (!recipe.isPublic && recipe.author?.id !== userId) {
         throw new AppError(
-          { ...ERR.FORBIDDEN, message: 'You are not allowed to use this recipe.' },
+          { ...ERR.FORBIDDEN, message: 'You cannot use this recipe.' },
           { reason: 'RECIPE_PRIVATE' }
         )
       }
-
-      linkedRecipe = recipe
     }
 
-    // Fasts récents
+    let foodItem: FoodItemEntity | null = null
+    if (input.foodItemId) {
+      foodItem = await this.foodItemsRepo.findOne({
+        where: { id: input.foodItemId },
+        relations: ['owner']
+      })
+      if (!foodItem) {
+        throw new AppError(
+          { ...ERR.NOT_FOUND, message: 'Food item not found.' },
+          { reason: 'FOOD_ITEM_NOT_FOUND' }
+        )
+      }
+      // global ok, user ok
+      const isOwnerOk = foodItem.source === 'GLOBAL' || foodItem.owner?.id === userId
+      if (!isOwnerOk) {
+        throw new AppError(
+          { ...ERR.FORBIDDEN, message: 'You cannot use this food item.' },
+          { reason: 'FOOD_ITEM_FORBIDDEN' }
+        )
+      }
+    }
+
+    // ---- Associer au fast + window
     const since = new Date()
     since.setDate(since.getDate() - 7)
 
@@ -85,51 +105,47 @@ export class FoodEntryService {
 
     let linkedFast: FastEntity | null = null
     let inEatingWindow = false
-    let isPostFast = false
-
-    const loggedMs = loggedAt.getTime()
 
     for (const fast of fasts) {
       if (fast.startAt < since) break
-
       const window = this.computeEatingWindowForFast(fast)
       if (!window) continue
 
-      const { fastTargetEndAt, eatingWindowStartAt, eatingWindowEndAt } = window
+      const { eatingWindowStartAt, eatingWindowEndAt } = window
 
+      const loggedMs = loggedAt.getTime()
       const startMs = fast.startAt.getTime()
-      const fastEndMs = fastTargetEndAt.getTime()
       const eatStartMs = eatingWindowStartAt.getTime()
       const eatEndMs = eatingWindowEndAt.getTime()
 
-      // on associe si [startAt, eatingWindowEndAt]
       if (loggedMs >= startMs && loggedMs <= eatEndMs) {
         linkedFast = fast
-
         inEatingWindow = loggedMs >= eatStartMs && loggedMs <= eatEndMs
-
-        // "post-fast" : première portion de la fenêtre d'alimentation, ou plus simple :
-        // tout ce qui est dans la fenêtre d'alim ET après la fin théorique du jeûne
-        if (loggedMs >= fastEndMs && loggedMs <= eatEndMs) {
-          isPostFast = true
-        }
-
         break
       }
     }
 
+    // ✅ fallback label/macros si tu passes recipeId/foodItemId
+    const label = input.label?.trim() || recipe?.title || foodItem?.label || 'Meal'
+    const calories = input.calories ?? recipe?.totalCalories ?? foodItem?.calories ?? null
+    const proteinGrams =
+      input.proteinGrams ?? recipe?.proteinGrams ?? foodItem?.proteinGrams ?? null
+    const carbsGrams = input.carbsGrams ?? recipe?.carbsGrams ?? foodItem?.carbsGrams ?? null
+    const fatGrams = input.fatGrams ?? recipe?.fatGrams ?? foodItem?.fatGrams ?? null
+
     const entry = this.foodRepo.create({
       user,
       fast: linkedFast,
-      recipe: linkedRecipe,
+      recipe,
+      foodItem,
       loggedAt,
-      label: input.label,
-      calories: input.calories ?? null,
-      proteinGrams: input.proteinGrams ?? null,
-      carbsGrams: input.carbsGrams ?? null,
-      fatGrams: input.fatGrams ?? null,
+      label,
+      calories,
+      proteinGrams,
+      carbsGrams,
+      fatGrams,
       inEatingWindow,
-      isPostFast
+      isPostFast: input.isPostFast ?? false
     })
 
     return this.foodRepo.save(entry)
@@ -146,9 +162,116 @@ export class FoodEntryService {
         loggedAt: Between(from, to)
       },
       order: { loggedAt: 'ASC' },
-      relations: ['fast', 'recipe']
+      relations: ['fast', 'recipe', 'foodItem']
     })
   }
+
+  // async getSummary(
+  //   userId: string,
+  //   query: FoodSummaryQuery
+  // ): Promise<{
+  //   from: string
+  //   to: string
+  //   days: FoodDaySummary[]
+  //   topRecipes: FoodTopRecipeSummary[]
+  // }> {
+  //   const today = new Date()
+
+  //   const fromDate = query.from ? new Date(query.from + 'T00:00:00') : subDays(today, 6)
+  //   const toDate = query.to ? new Date(query.to + 'T00:00:00') : today
+
+  //   const from = startOfDay(fromDate)
+  //   const to = endOfDay(toDate)
+
+  //   const entries = await this.foodRepo.find({
+  //     where: {
+  //       user: { id: userId },
+  //       loggedAt: Between(from, to)
+  //     },
+  //     order: { loggedAt: 'ASC' },
+  //     relations: ['recipe']
+  //   })
+
+  //   const dayMap = new Map<string, FoodDaySummary>()
+  //   const recipeMap = new Map<string, FoodTopRecipeSummary>()
+
+  //   for (const entry of entries) {
+  //     const dayKey = formatDate(entry.loggedAt, 'yyyy-MM-dd')
+  //     const cals = entry.calories ?? 0
+
+  //     let rec = dayMap.get(dayKey)
+  //     if (!rec) {
+  //       rec = {
+  //         day: dayKey,
+  //         totalCalories: 0,
+  //         inWindowCalories: 0,
+  //         outWindowCalories: 0,
+  //         entriesCount: 0,
+  //         postFastCalories: 0
+  //       }
+  //       dayMap.set(dayKey, rec)
+  //     }
+
+  //     rec.totalCalories += cals
+  //     if (entry.inEatingWindow) {
+  //       rec.inWindowCalories += cals
+  //     } else {
+  //       rec.outWindowCalories += cals
+  //     }
+  //     if (entry.isPostFast) {
+  //       rec.postFastCalories += cals
+  //     }
+  //     rec.entriesCount += 1
+
+  //     // Top recettes
+  //     if (entry.recipe) {
+  //       const id = entry.recipe.id
+  //       let r = recipeMap.get(id)
+  //       if (!r) {
+  //         r = {
+  //           recipeId: id,
+  //           title: entry.recipe.title,
+  //           imageUrl: entry.recipe.imageUrl ?? null,
+  //           uses: 0,
+  //           totalCalories: 0
+  //         }
+  //         recipeMap.set(id, r)
+  //       }
+  //       r.uses += 1
+  //       r.totalCalories += cals
+  //     }
+  //   }
+
+  //   const allDays = eachDayOfInterval({ start: from, end: to })
+  //   const days: FoodDaySummary[] = allDays.map((d) => {
+  //     const key = formatDate(d, 'yyyy-MM-dd')
+  //     return (
+  //       dayMap.get(key) ?? {
+  //         day: key,
+  //         totalCalories: 0,
+  //         inWindowCalories: 0,
+  //         outWindowCalories: 0,
+  //         entriesCount: 0,
+  //         postFastCalories: 0
+  //       }
+  //     )
+  //   })
+
+  //   // On trie les recettes par nombre d'utilisations puis par calories
+  //   const topRecipes = Array.from(recipeMap.values())
+  //     .sort((a, b) => {
+  //       if (b.uses !== a.uses) return b.uses - a.uses
+  //       return b.totalCalories - a.totalCalories
+  //     })
+  //     .slice(0, 5) // Top 5 sur la période
+
+  //   return {
+  //     from: formatDate(from, 'yyyy-MM-dd'),
+  //     to: formatDate(to, 'yyyy-MM-dd'),
+  //     days,
+  //     topRecipes
+  //   }
+  // }
 
   async getSummary(
     userId: string,
@@ -167,17 +290,15 @@ export class FoodEntryService {
     const from = startOfDay(fromDate)
     const to = endOfDay(toDate)
 
+    // ✅ IMPORTANT: relation recipe pour topRecipes
     const entries = await this.foodRepo.find({
-      where: {
-        user: { id: userId },
-        loggedAt: Between(from, to)
-      },
+      where: { user: { id: userId }, loggedAt: Between(from, to) },
       order: { loggedAt: 'ASC' },
-      relations: ['recipe'] // 👈 pour pouvoir calculer top recettes
+      relations: ['recipe']
     })
 
+    // ---- Days aggregation
     const dayMap = new Map<string, FoodDaySummary>()
-    const recipeMap = new Map<string, FoodTopRecipeSummary>()
 
     for (const entry of entries) {
       const dayKey = formatDate(entry.loggedAt, 'yyyy-MM-dd')
@@ -197,37 +318,15 @@ export class FoodEntryService {
       }
 
       rec.totalCalories += cals
-      if (entry.inEatingWindow) {
-        rec.inWindowCalories += cals
-      } else {
-        rec.outWindowCalories += cals
-      }
-      if (entry.isPostFast) {
-        rec.postFastCalories += cals
-      }
       rec.entriesCount += 1
 
-      // Top recettes
-      if (entry.recipe) {
-        const id = entry.recipe.id
-        let r = recipeMap.get(id)
-        if (!r) {
-          r = {
-            recipeId: id,
-            title: entry.recipe.title,
-            imageUrl: entry.recipe.imageUrl ?? null,
-            uses: 0,
-            totalCalories: 0
-          }
-          recipeMap.set(id, r)
-        }
-        r.uses += 1
-        r.totalCalories += cals
-      }
+      if (entry.inEatingWindow) rec.inWindowCalories += cals
+      else rec.outWindowCalories += cals
+
+      if (entry.isPostFast) rec.postFastCalories += cals
     }
 
-    const allDays = eachDayOfInterval({ start: from, end: to })
-    const days: FoodDaySummary[] = allDays.map((d) => {
+    const days: FoodDaySummary[] = eachDayOfInterval({ start: from, end: to }).map((d) => {
       const key = formatDate(d, 'yyyy-MM-dd')
       return (
         dayMap.get(key) ?? {
@@ -241,13 +340,43 @@ export class FoodEntryService {
       )
     })
 
-    // On trie les recettes par nombre d'utilisations puis par calories
+    // ---- Top recipes aggregation
+    const recipeMap = new Map<
+      string,
+      {
+        recipeId: string
+        title: string
+        imageUrl: string | null
+        uses: number
+        totalCalories: number
+      }
+    >()
+
+    for (const e of entries) {
+      if (!e.recipe) continue
+
+      const id = e.recipe.id
+      const rec = recipeMap.get(id) ?? {
+        recipeId: id,
+        title: e.recipe.title,
+        imageUrl: e.recipe.imageUrl ?? null,
+        uses: 0,
+        totalCalories: 0
+      }
+
+      rec.uses += 1
+      rec.totalCalories += e.calories ?? 0
+
+      // garde la dernière image/titre au cas où
+      rec.title = e.recipe.title
+      rec.imageUrl = e.recipe.imageUrl ?? rec.imageUrl
+
+      recipeMap.set(id, rec)
+    }
+
     const topRecipes = Array.from(recipeMap.values())
-      .sort((a, b) => {
-        if (b.uses !== a.uses) return b.uses - a.uses
-        return b.totalCalories - a.totalCalories
-      })
-      .slice(0, 5) // Top 5 sur la période
+      .sort((a, b) => b.uses - a.uses || b.totalCalories - a.totalCalories)
+      .slice(0, 10)
 
     return {
       from: formatDate(from, 'yyyy-MM-dd'),
@@ -255,5 +384,59 @@ export class FoodEntryService {
       days,
       topRecipes
     }
+  }
+
+  async updateEntry(userId: string, entryId: string, input: UpdateFoodEntryInput) {
+    const entry = await this.foodRepo.findOne({
+      where: { id: entryId },
+      relations: ['user', 'recipe', 'foodItem', 'fast']
+    })
+
+    if (!entry) {
+      throw new AppError(
+        { ...ERR.NOT_FOUND, message: 'Food entry not found.' },
+        { reason: 'ENTRY_NOT_FOUND', entryId }
+      )
+    }
+
+    if (entry.user.id !== userId) {
+      throw new AppError(
+        { ...ERR.FORBIDDEN, message: 'Not allowed.' },
+        { reason: 'NOT_OWNER', entryId }
+      )
+    }
+
+    if (input.label !== undefined) entry.label = input.label
+    if (input.calories !== undefined) entry.calories = input.calories ?? null
+    if (input.proteinGrams !== undefined) entry.proteinGrams = input.proteinGrams ?? null
+    if (input.carbsGrams !== undefined) entry.carbsGrams = input.carbsGrams ?? null
+    if (input.fatGrams !== undefined) entry.fatGrams = input.fatGrams ?? null
+    if (input.loggedAt !== undefined) entry.loggedAt = input.loggedAt
+
+    if (input.isPostFast !== undefined) entry.isPostFast = input.isPostFast
+
+    // Optionnel : autoriser de relier à une recipe/foodItem après coup
+    // ⚠️ si tu fais ça, valide l’existence + ownership/public
+    // sinon tu peux enlever ces 2 blocs
+    if (input.recipeId !== undefined) {
+      // si null => unlink
+      if (input.recipeId === null) {
+        entry.recipe = null
+      } else {
+        // TODO: charger RecipeEntity et vérifier droits
+        // const recipe = await this.recipesRepo.findOne(...)
+        // entry.recipe = recipe
+      }
+    }
+
+    if (input.foodItemId !== undefined) {
+      if (input.foodItemId === null) {
+        entry.foodItem = null
+      } else {
+        // TODO: charger FoodItemEntity et vérifier droits
+      }
+    }
+
+    return this.foodRepo.save(entry)
   }
 }

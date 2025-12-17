@@ -1,14 +1,20 @@
 import { z } from 'zod'
 
-export const createFoodEntrySchema = z.object({
-  label: z.string().min(1).max(255),
-  calories: z.number().int().positive().max(5000).optional(),
-  proteinGrams: z.number().nonnegative().max(500).optional(),
-  carbsGrams: z.number().nonnegative().max(500).optional(),
-  fatGrams: z.number().nonnegative().max(500).optional(),
-  loggedAt: z.coerce.date().optional(),
-  recipeId: z.uuid().optional()
-})
+export const createFoodEntrySchema = z
+  .object({
+    label: z.string().min(1).max(255),
+    calories: z.number().int().positive().max(5000).nullable().optional(),
+    proteinGrams: z.number().nonnegative().max(500).nullable().optional(),
+    carbsGrams: z.number().nonnegative().max(500).nullable().optional(),
+    fatGrams: z.number().nonnegative().max(500).nullable().optional(),
+    loggedAt: z.coerce.date().optional(),
+    recipeId: z.uuid().nullable().optional(),
+    foodItemId: z.uuid().nullable().optional(),
+    isPostFast: z.boolean().optional().default(false)
+  })
+  .refine((data) => !(data.recipeId && data.foodItemId), {
+    message: 'A food entry cannot reference both a recipe and a food item.'
+  })
 
 export const listFoodEntriesQuerySchema = z.object({
   day: z
@@ -55,3 +61,23 @@ export type FoodSummaryResponse = {
 export type CreateFoodEntryInput = z.infer<typeof createFoodEntrySchema>
 export type ListFoodEntriesQuery = z.infer<typeof listFoodEntriesQuerySchema>
 export type FoodSummaryQuery = z.infer<typeof foodSummaryQuerySchema>
+
+export const updateFoodEntrySchema = z.object({
+  label: z.string().min(1).max(255).optional(),
+
+  calories: z.number().int().positive().max(5000).nullable().optional(),
+  proteinGrams: z.number().nonnegative().max(500).nullable().optional(),
+  carbsGrams: z.number().nonnegative().max(500).nullable().optional(),
+  fatGrams: z.number().nonnegative().max(500).nullable().optional(),
+
+  // optionnel : on peut permettre de changer loggedAt si tu veux
+  loggedAt: z.coerce.date().optional(),
+
+  // liens optionnels (tu peux autoriser ou non le changement)
+  recipeId: z.uuid().nullable().optional(),
+  foodItemId: z.uuid().nullable().optional(),
+
+  isPostFast: z.boolean().optional()
+})
+
+export type UpdateFoodEntryInput = z.infer<typeof updateFoodEntrySchema>

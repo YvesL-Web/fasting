@@ -9,22 +9,24 @@ import { FoodEntryService } from '../services/food-entry.service'
 import {
   createFoodEntrySchema,
   foodSummaryQuerySchema,
-  listFoodEntriesQuerySchema
+  listFoodEntriesQuerySchema,
+  updateFoodEntrySchema
 } from '../schemas/food-entry.schemas'
 import type { AuthRequest } from '../../../middlewares/auth'
 import { authMiddleware } from '../../../middlewares/auth'
 import { AppError, ERR } from '../../../utils/error'
 import { RecipeEntity } from '../../recipes/recipe.entity'
+import { FoodItemEntity } from '../entities/food-item.entity'
 
 const foodRepo = appDataSource.getRepository(FoodEntryEntity)
 const fastsRepo = appDataSource.getRepository(FastEntity)
 const usersRepo = appDataSource.getRepository(UserEntity)
 const recipesRepo = appDataSource.getRepository(RecipeEntity)
+const foodItemsRepo = appDataSource.getRepository(FoodItemEntity)
 
-const foodService = new FoodEntryService(foodRepo, fastsRepo, usersRepo, recipesRepo)
+const foodService = new FoodEntryService(foodRepo, fastsRepo, usersRepo, recipesRepo, foodItemsRepo)
 
 export const foodEntriesRouter = Router()
-
 foodEntriesRouter.use(authMiddleware)
 
 const toFoodEntryResponse = (entry: FoodEntryEntity) => ({
@@ -45,6 +47,7 @@ const toFoodEntryResponse = (entry: FoodEntryEntity) => ({
         imageUrl: entry.recipe.imageUrl ?? null
       }
     : null,
+  foodItemId: entry.foodItem ? entry.foodItem.id : null,
   createdAt: entry.createdAt,
   updatedAt: entry.updatedAt
 })
@@ -98,6 +101,23 @@ foodEntriesRouter.get('/summary', async (req: AuthRequest, res, next) => {
     if (err instanceof z.ZodError) {
       return next(AppError.fromZod(err))
     }
+    return next(err)
+  }
+})
+
+foodEntriesRouter.patch('/:id', async (req: AuthRequest, res, next) => {
+  try {
+    if (!req.userId) throw new AppError(ERR.UNAUTHORIZED)
+
+    const idSchema = z.object({ id: z.uuid() })
+    const { id } = idSchema.parse(req.params)
+
+    const input = updateFoodEntrySchema.parse(req.body)
+    const entry = await foodService.updateEntry(req.userId, id, input)
+
+    res.status(200).json({ entry: toFoodEntryResponse(entry) })
+  } catch (err) {
+    if (err instanceof z.ZodError) return next(AppError.fromZod(err))
     return next(err)
   }
 })

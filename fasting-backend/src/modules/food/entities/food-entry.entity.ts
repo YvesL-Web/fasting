@@ -9,6 +9,7 @@ import {
 import { UserEntity } from '../../users/user.entity'
 import { FastEntity } from '../../fasts/fast.entity'
 import { RecipeEntity } from '../../recipes/recipe.entity'
+import { FoodItemEntity } from './food-item.entity'
 
 @Entity({ name: 'food_entries' })
 export class FoodEntryEntity {
@@ -23,6 +24,9 @@ export class FoodEntryEntity {
 
   @ManyToOne(() => RecipeEntity, { onDelete: 'SET NULL', nullable: true })
   recipe!: RecipeEntity | null
+
+  @ManyToOne(() => FoodItemEntity, { onDelete: 'SET NULL', nullable: true })
+  foodItem!: FoodItemEntity | null
 
   @Column({ type: 'timestamp' })
   loggedAt!: Date
