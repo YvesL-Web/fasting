@@ -121,3 +121,16 @@ foodEntriesRouter.patch('/:id', async (req: AuthRequest, res, next) => {
     return next(err)
   }
 })
+
+foodEntriesRouter.delete('/:id', async (req: AuthRequest, res, next) => {
+  try {
+    if (!req.userId) throw new AppError(ERR.UNAUTHORIZED)
+    const idSchema = z.object({ id: z.uuid() })
+    const { id } = idSchema.parse(req.params)
+    await foodService.deleteEntry(req.userId, id)
+    res.status(204).send()
+  } catch (err) {
+    if (err instanceof z.ZodError) return next(AppError.fromZod(err))
+    return next(err)
+  }
+})

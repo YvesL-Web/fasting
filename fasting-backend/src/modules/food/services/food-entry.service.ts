@@ -489,4 +489,24 @@ export class FoodEntryService {
 
     return this.foodRepo.save(entry)
   }
+
+  async deleteEntry(userId: string, entryId: string): Promise<void> {
+    const entry = await this.foodRepo.findOne({
+      where: { id: entryId },
+      relations: ['user']
+    })
+    if (!entry) {
+      throw new AppError(
+        { ...ERR.NOT_FOUND, message: 'Food entry not found.' },
+        { reason: 'ENTRY_NOT_FOUND', entryId }
+      )
+    }
+    if (entry.user.id !== userId) {
+      throw new AppError(
+        { ...ERR.FORBIDDEN, message: 'Not allowed.' },
+        { reason: 'NOT_OWNER', entryId }
+      )
+    }
+    await this.foodRepo.remove(entry)
+  }
 }
